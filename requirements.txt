@@ -1,0 +1,15 @@
+# 基础模块
+numpy
+pandas
+
+# 自然语言处理相关模块
+spacy
+
+# 全文检索相关模块
+elasticsearch
+
+# Web 框架（如果需要）
+flask
+
+# 其他常用工具
+
