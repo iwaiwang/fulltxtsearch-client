@@ -1,0 +1,7 @@
+{
+  "host": "http://localhost",
+  "port": 9200,
+  "user": "elastic",
+  "password": "john2012",
+  "index_name": "pdf_documents"
+}
