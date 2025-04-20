@@ -13,3 +13,5 @@ flask
 
 # 其他常用工具
 
+#PDF 相关
+pdfplumber
