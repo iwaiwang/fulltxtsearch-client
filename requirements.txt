@@ -6,7 +6,7 @@ pandas
 spacy
 
 # 全文检索相关模块
-elasticsearch
+opensearchpy
 
 # Web 框架（如果需要）
 flask
@@ -15,3 +15,5 @@ flask
 
 #PDF 相关
 pdfplumber
+
+watchdog   
