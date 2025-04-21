@@ -332,3 +332,26 @@ class GUILogHandler(logging.Handler):
 if __name__ == "__main__":
     app = PDFIndexerApp()
     app.mainloop() # 启动 Tkinter 事件循环
+
+
+
+#基于命令行的最简单的测试
+###################################################################
+#  python -c "from main import TestOpenSearch; TestOpenSearch()"
+###################################################################
+
+def TestOpenSearch():
+    config = SysConfig.load_config().get("opeansearch")
+    #连接opensearch
+    os_client = OSClient(config)
+    #创建索引
+    os_client.create_index()
+
+    # 配置
+    PDF_DIRECTORY = './pdf_files'  # 替换为你的PDF文件目录
+    # 索引目录中的所有PDF文件，把PDF内容提取出来，并保存到OpenSearch中
+    pdf_processor = PDFProcessor(os)
+    pdf_processor.index_directory(PDF_DIRECTORY)
+
+    # 如果需要搜索，这里可以调用 os_client.search()
+
