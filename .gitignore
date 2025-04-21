@@ -1,3 +1,4 @@
 .venv/
 pdf_files/
 indexed_files.db
+src/__pycache__/
