@@ -1,6 +1,4 @@
-# file_scanner.py
 import os
-import time
 import logging
 from db_manager import IndexedFileManager
 

@@ -99,7 +99,6 @@ class PDFIndexerApp(tk.Tk):
             pass
         # 保存 after ID，以便在退出时取消
         self._check_queue_after_id = self.after(100, self.check_queue)
-
     def append_log(self, message):
         try:
             self.log_text.config(state='normal')
