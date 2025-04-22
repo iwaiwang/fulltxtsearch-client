@@ -35,6 +35,7 @@
             padding: 10px;
             overflow: auto;
             max-height: 80vh;
+            min-height: 200px;
         }
         .pdf-container {
             display: flex;
@@ -90,6 +91,37 @@
             height: 50px;
             object-fit: contain;
         }
+        .pdf-placeholder {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            min-height: 200px;
+        }
+        .filter-panel {
+            background-color: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        .toggle-button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .button-group {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -98,7 +130,7 @@
         <div class="header">
             <img src="/static/images/logo.png" alt="医院Logo" class="logo">
             <h1 class="text-3xl font-bold text-gray-800">某医院病案全文检索平台</h1>
-            <div class="w-12"></div> <!-- 占位，平衡布局 -->
+            <div class="w-12"></div>
         </div>
 
         <!-- 搜索栏 -->
@@ -110,13 +142,89 @@
                 placeholder="请输入搜索关键词..." 
                 class="w-full p-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-            <div class="flex justify-center mt-2">
+            <!-- 按钮组：搜索和展开高级过滤 -->
+            <div class="button-group">
+                <button 
+                    @click="toggleFilters" 
+                    class="toggle-button px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                            :d="showFilters ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'" />
+                    </svg>
+                    {{ showFilters ? '收起过滤条件' : '展开高级过滤' }}
+                </button>
                 <button 
                     @click="search(1)" 
                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                     搜索
                 </button>
+            </div>
+            <!-- 折叠面板 -->
+            <div v-if="showFilters" class="filter-panel">
+                <div class="filter-grid">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">患者名</label>
+                        <input 
+                            v-model="filters.patientName" 
+                            type="text" 
+                            placeholder="请输入患者名" 
+                            class="mt-1 w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">住院号</label>
+                        <input 
+                            v-model="filters.hospitalId" 
+                            type="number" 
+                            placeholder="请输入住院号" 
+                            class="mt-1 w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">住院日期（开始）</label>
+                        <input 
+                            v-model="filters.admissionDateStart" 
+                            type="date" 
+                            class="mt-1 w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">住院日期（结束）</label>
+                        <input 
+                            v-model="filters.admissionDateEnd" 
+                            type="date" 
+                            class="mt-1 w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">出院日期（开始）</label>
+                        <input 
+                            v-model="filters.dischargeDateStart" 
+                            type="date" 
+                            class="mt-1 w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">出院日期（结束）</label>
+                        <input 
+                            v-model="filters.dischargeDateEnd" 
+                            type="date" 
+                            class="mt-1 w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">文件类型</label>
+                        <select 
+                            v-model="filters.fileType" 
+                            class="mt-1 w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">所有文件类型</option>
+                            <option v-for="type in fileTypes" :value="type" :key="type">{{ type }}</option>
+                        </select>
+                    </div>
+                </div>
             </div>
             <p v-if="error" class="text-red-500 mt-2 text-center">{{ error }}</p>
             <p v-if="total > 0" class="text-gray-600 mt-2 text-center">
@@ -137,8 +245,8 @@
                     class="result-item" 
                     @dblclick="loadPdf(result)"
                 >
-                    <p class="font-semibold">{{ result.filename }}</p>
-                    <p class="text-sm text-gray-600">页码: {{ result.page }}</p>
+                    <p class="font-semibold">{{ result.patient }} - {{ result.filename }}</p>
+                    <p class="text-sm text-gray-600">住院号: {{ result.hospital_id }} | 页码: {{ result.page }}</p>
                     <p class="text-sm" v-html="result.text"></p>
                 </div>
 
@@ -159,7 +267,7 @@
 
             <!-- PDF预览 -->
             <div class="w-2/3">
-                <div v-if="!pdfUrl" class="text-gray-500">
+                <div v-if="!pdfUrl" class="text-gray-500 pdf-placeholder">
                     请双击搜索结果以加载PDF
                 </div>
                 <div v-else class="pdf-viewer">
@@ -202,6 +310,17 @@
             el: '#app',
             data: {
                 query: '',
+                showFilters: false,
+                filters: {
+                    patientName: '',
+                    hospitalId: '',
+                    admissionDateStart: '',
+                    admissionDateEnd: '',
+                    dischargeDateStart: '',
+                    dischargeDateEnd: '',
+                    fileType: ''
+                },
+                fileTypes: [],
                 results: [],
                 pdfUrl: null,
                 pdfPage: 1,
@@ -230,28 +349,51 @@
                     return range;
                 }
             },
+            mounted() {
+                // 加载文件类型
+                axios.get('/api/file_types')
+                    .then(response => {
+                        this.fileTypes = response.data;
+                    })
+                    .catch(error => {
+                        console.error('Failed to load file types:', error);
+                    });
+            },
             methods: {
-                async search(page = 1) {
-                    console.log('Search triggered with query:', this.query, 'page:', page);
-                    if (!this.query.trim()) {
-                        console.log('Empty query, skipping search');
-                        return;
+                toggleFilters() {
+                    this.showFilters = !this.showFilters;
+                    if (!this.showFilters) {
+                        // 收起时清空过滤条件
+                        this.filters = {
+                            patientName: '',
+                            hospitalId: '',
+                            admissionDateStart: '',
+                            admissionDateEnd: '',
+                            dischargeDateStart: '',
+                            dischargeDateEnd: '',
+                            fileType: ''
+                        };
                     }
+                },
+                async search(page = 1) {
+                    console.log('Search triggered with query:', this.query, 'filters:', this.filters, 'page:', page);
                     this.current_page = page;
                     this.error = '';
-                    console.log('Sending API request with params:', {
+                    const params = {
                         query: this.query,
+                        patient_name: this.filters.patientName,
+                        hospital_id: this.filters.hospitalId,
+                        admission_date_start: this.filters.admissionDateStart,
+                        admission_date_end: this.filters.admissionDateEnd,
+                        discharge_date_start: this.filters.dischargeDateStart,
+                        discharge_date_end: this.filters.dischargeDateEnd,
+                        file_type: this.filters.fileType,
                         page: this.current_page,
                         size: this.size
-                    });
+                    };
+                    console.log('Sending API request with params:', params);
                     try {
-                        const response = await axios.get('/api/search', {
-                            params: {
-                                query: this.query,
-                                page: this.current_page,
-                                size: this.size
-                            }
-                        });
+                        const response = await axios.get('/api/search', { params });
                         console.log('Search results:', response.data.results);
                         this.results = response.data.results;
                         this.total = response.data.total;
