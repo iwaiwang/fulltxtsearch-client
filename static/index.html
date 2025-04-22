@@ -41,6 +41,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            position: relative;
         }
         #pdf-canvas {
             border: 1px solid #e2e8f0;
@@ -121,6 +122,14 @@
             align-items: center;
             gap: 10px;
             margin-top: 10px;
+        }
+        .text-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            width: 100%;
+            height: 100%;
         }
     </style>
 </head>
@@ -290,8 +299,11 @@
                                 下一页
                             </button>
                         </div>
-                        <!-- PDF 画布 -->
-                        <canvas id="pdf-canvas"></canvas>
+                        <!-- PDF 画布和文本层 -->
+                        <div style="position: relative;">
+                            <canvas id="pdf-canvas"></canvas>
+                            <div id="text-layer" class="text-layer"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -330,7 +342,8 @@
                 size: 10,
                 total_pages: 0,
                 error: '',
-                pdfDocument: null
+                pdfDocument: null,
+                debugHighlight: true // 调试模式，显示高亮边框
             },
             computed: {
                 pageRange() {
@@ -486,10 +499,67 @@
 
                         context.clearRect(0, 0, canvas.width, canvas.height);
 
+                        // 渲染 PDF 页面
                         await page.render({
                             canvasContext: context,
                             viewport: scaledViewport
                         }).promise;
+
+                        // 高亮关键词
+                        if (this.query) {
+                            const textLayerDiv = document.getElementById('text-layer');
+                            textLayerDiv.innerHTML = ''; // 清空文本层
+                            textLayerDiv.style.width = `${scaledViewport.width}px`;
+                            textLayerDiv.style.height = `${scaledViewport.height}px`;
+
+                            const textContent = await page.getTextContent();
+                            const keywords = this.query.trim().split(/\s+/).filter(k => k);
+                            const highlightRects = [];
+
+                            textContent.items.forEach(item => {
+                                if (!item.str) return;
+                                keywords.forEach(keyword => {
+                                    const regex = new RegExp(keyword, 'gi');
+                                    let match;
+                                    while ((match = regex.exec(item.str)) !== null) {
+                                        const startIdx = match.index;
+                                        const endIdx = startIdx + keyword.length;
+
+                                        // 计算字符宽度（考虑中文等宽字符）
+                                        const charCount = [...item.str].length; // 按字符计数
+                                        const charWidth = item.width / charCount || 10; // 默认 10px
+                                        const x = item.transform[4] * scale;
+                                        const y = scaledViewport.height - (item.transform[5] + item.height) * scale;
+                                        const width = charWidth * keyword.length * scale;
+                                        const height = item.height * scale;
+
+                                        const rect = {
+                                            x: x + (startIdx * charWidth * scale),
+                                            y: y,
+                                            width: width,
+                                            height: height
+                                        };
+                                        highlightRects.push(rect);
+
+                                        //console.log(`Highlighting "${keyword}" at x:${rect.x}, y:${rect.y}, w:${rect.width}, h:${rect.height}`);
+                                    }
+                                });
+                            });
+
+                            // 绘制高亮矩形
+                            context.globalAlpha = 0.3; // 半透明高亮
+                            context.fillStyle = 'yellow';
+                            highlightRects.forEach(rect => {
+                                context.fillRect(rect.x, rect.y, rect.width, rect.height);
+                                // 调试边框
+                                if (this.debugHighlight) {
+                                    context.globalAlpha = 1.0;
+                                    context.strokeStyle = 'red';
+                                    context.strokeRect(rect.x, rect.y, rect.width, rect.height);
+                                }
+                            });
+                            context.globalAlpha = 1.0; // 恢复不透明
+                        }
 
                         console.log('Page rendered:', this.pdfPage);
                     } catch (error) {
