@@ -1,0 +1,36 @@
+version: '3.8'
+services:
+  flask:
+    build: .
+    ports:
+      - "5001:5001"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - FLASK_ENV=production
+      - OPENSEARCH_HOST=opensearch:9200
+    depends_on:
+      - opensearch
+    networks:
+      - app-network
+
+  opensearch:
+    image: opensearchproject/opensearch:2.19.0
+    environment:
+      - discovery.type=single-node
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - plugins.security.disabled=true # 开发环境禁用安全插件
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    networks:
+      - app-network
+
+volumes:
+  opensearch-data:
+
+networks:
+  app-network:
+    driver: bridge
