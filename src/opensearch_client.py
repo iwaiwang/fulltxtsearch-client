@@ -62,6 +62,7 @@ class OSClient:
                     '住院号': {'type': 'long'},
                     '住院日期': {'type': 'date'},
                     '出院日期': {'type': 'date'},
+                    '文件类型': {'type': 'text'},
                     '文件目录': {'type': 'text'},
                     '文件名称': {'type': 'text'},
                     '页号': {'type': 'long'},
