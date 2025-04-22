@@ -4,7 +4,7 @@ import logging
 from search_model import SearchModel
 from opensearch_client import OSClient
 from opensearchpy import OpenSearch, helpers # <-- 导入 helpers
-from pypdf import PdfReader # 从 pypdf 导入 PdfReader
+from PyPDF2 import PdfReader # 从 pypdf 导入 PdfReader
 
 # 设置日志
 #logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

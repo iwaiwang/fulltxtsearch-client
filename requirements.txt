@@ -1,19 +1,11 @@
-# 基础模块
-numpy
-pandas
 
-# 自然语言处理相关模块
-spacy
+
 
 # 全文检索相关模块
 opensearchpy
-
-# Web 框架（如果需要）
-flask
-
-# 其他常用工具
+sqlite3
 
 #PDF 相关
-pdfplumber
+pypdf2
 
-watchdog   
+   
