@@ -4,7 +4,8 @@
 # 全文检索相关模块
 opensearchpy
 sqlite3
-
+flask
+flask-cors
 #PDF 相关
 pypdf2
 
