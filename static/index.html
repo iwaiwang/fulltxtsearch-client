@@ -32,10 +32,21 @@
         .pdf-viewer {
             border: 1px solid #e2e8f0;
             border-radius: 8px;
-            overflow: hidden;
+            padding: 10px;
+            overflow: auto;
+            max-height: 80vh;
+        }
+        .pdf-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #pdf-canvas {
+            border: 1px solid #e2e8f0;
+            margin-bottom: 10px;
         }
         strong {
-            background-color: #fefcbf; /* 高亮样式 */
+            background-color: #fefcbf;
             font-weight: bold;
         }
         .pagination {
@@ -62,6 +73,12 @@
         .pagination span {
             margin: 0 10px;
         }
+        .pdf-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -81,6 +98,7 @@
             >
                 搜索
             </button>
+            <p v-if="error" class="text-red-500 mt-2">{{ error }}</p>
             <p v-if="total > 0" class="text-gray-600 mt-2">
                 找到 {{ total }} 条结果
             </p>
@@ -101,7 +119,7 @@
                 >
                     <p class="font-semibold">{{ result.filename }}</p>
                     <p class="text-sm text-gray-600">页码: {{ result.page }}</p>
-                    <p class="text-sm" v-html="result.text"></p> <!-- 直接渲染高亮文本 -->
+                    <p class="text-sm" v-html="result.text"></p>
                 </div>
 
                 <!-- 分页导航 -->
@@ -121,17 +139,45 @@
 
             <!-- PDF预览 -->
             <div class="w-2/3">
-                <div v archiving="true" v-if="!pdfUrl" class="text-gray-500">
+                <div v-if="!pdfUrl" class="text-gray-500">
                     请双击搜索结果以加载PDF
                 </div>
                 <div v-else class="pdf-viewer">
-                    <canvas id="pdf-canvas"></canvas>
+                    <div class="pdf-container">
+                        <!-- 翻页控件 -->
+                        <div class="pdf-controls">
+                            <button 
+                                @click="prevPdfPage" 
+                                :disabled="pdfPage <= 1"
+                                class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                            >
+                                上一页
+                            </button>
+                            <span>第 {{ pdfPage }} 页 / 共 {{ totalPdfPages }} 页</span>
+                            <button 
+                                @click="nextPdfPage" 
+                                :disabled="pdfPage >= totalPdfPages"
+                                class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                            >
+                                下一页
+                            </button>
+                        </div>
+                        <!-- PDF 画布 -->
+                        <canvas id="pdf-canvas"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+        // 配置 PDF.js 的 workerSrc
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.worker.min.js';
+        } else {
+            console.error('pdfjsLib is not loaded');
+        }
+
         new Vue({
             el: '#app',
             data: {
@@ -139,10 +185,13 @@
                 results: [],
                 pdfUrl: null,
                 pdfPage: 1,
+                totalPdfPages: 1,
                 total: 0,
                 current_page: 1,
                 size: 10,
-                total_pages: 0
+                total_pages: 0,
+                error: '',
+                pdfDocument: null
             },
             computed: {
                 pageRange() {
@@ -169,6 +218,7 @@
                         return;
                     }
                     this.current_page = page;
+                    this.error = '';
                     console.log('Sending API request with params:', {
                         query: this.query,
                         page: this.current_page,
@@ -182,12 +232,16 @@
                                 size: this.size
                             }
                         });
-                        console.log('API response:', response.data);
+                        console.log('Search results:', response.data.results);
                         this.results = response.data.results;
                         this.total = response.data.total;
                         this.total_pages = response.data.total_pages;
                         this.pdfUrl = null;
+                        this.pdfDocument = null;
+                        this.totalPdfPages = 1;
+                        this.pdfPage = 1;
                     } catch (error) {
+                        this.error = '搜索失败，请重试';
                         console.error('Search failed:', error);
                     }
                 },
@@ -207,23 +261,99 @@
                     }
                 },
                 async loadPdf(result) {
-                    this.pdfUrl = `/api/pdf?filename=${encodeURIComponent(result.filename)}`;
+                    console.log('loadPdf called with result:', result);
+                    this.error = '';
+                    if (!result || !result.filename) {
+                        this.error = '无效的结果或缺少文件名';
+                        console.error('Invalid result or missing filename');
+                        return;
+                    }
+                    const newPdfUrl = `/api/pdf?filename=${encodeURIComponent(result.filename)}`;
+                    console.log('New pdfUrl:', newPdfUrl, 'Current pdfUrl:', this.pdfUrl);
+                    // 重置 PDF 状态
+                    if (this.pdfUrl !== newPdfUrl) {
+                        this.pdfDocument = null; // 清除旧文档
+                        this.totalPdfPages = 1;
+                    }
+                    this.pdfUrl = newPdfUrl;
                     this.pdfPage = result.page;
-                    this.renderPdf();
+                    console.log('pdfUrl set to:', this.pdfUrl, 'pdfPage:', this.pdfPage);
+                    await this.renderPdf();
                 },
                 async renderPdf() {
-                    if (!this.pdfUrl) return;
-                    const pdf = await pdfjsLib.getDocument(this.pdfUrl).promise;
-                    const page = await pdf.getPage(this.pdfPage);
-                    const canvas = document.getElementById('pdf-canvas');
-                    const context = canvas.getContext('2d');
-                    const viewport = page.getViewport({ scale: 1.5 });
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-                    page.render({
-                        canvasContext: context,
-                        viewport: viewport
-                    });
+                    console.log('renderPdf called with pdfUrl:', this.pdfUrl, 'page:', this.pdfPage);
+                    if (!this.pdfUrl) {
+                        console.log('No pdfUrl, skipping render');
+                        return;
+                    }
+                    if (typeof pdfjsLib === 'undefined') {
+                        this.error = 'PDF.js 未加载，请刷新页面';
+                        console.error('pdfjsLib is not defined');
+                        return;
+                    }
+                    try {
+                        // 加载新 PDF 文档
+                        if (!this.pdfDocument) {
+                            console.log('Loading new PDF document:', this.pdfUrl);
+                            this.pdfDocument = await pdfjsLib.getDocument(this.pdfUrl).promise;
+                            this.totalPdfPages = this.pdfDocument.numPages;
+                            console.log('PDF loaded, total pages:', this.totalPdfPages);
+                        }
+
+                        // 验证页面编号
+                        if (this.pdfPage < 1 || this.pdfPage > this.totalPdfPages) {
+                            this.error = `无效的页面编号: ${this.pdfPage}`;
+                            console.error('Invalid page number:', this.pdfPage);
+                            this.pdfPage = 1;
+                        }
+
+                        // 获取页面
+                        const page = await this.pdfDocument.getPage(this.pdfPage);
+                        const canvas = document.getElementById('pdf-canvas');
+                        if (!canvas) {
+                            this.error = '无法找到画布元素';
+                            console.error('Canvas element not found');
+                            return;
+                        }
+                        const context = canvas.getContext('2d');
+
+                        // 自适应缩放
+                        const container = document.querySelector('.pdf-viewer');
+                        const containerWidth = container.clientWidth - 20;
+                        const viewport = page.getViewport({ scale: 1 });
+                        const scale = Math.min(containerWidth / viewport.width, 1.5);
+                        const scaledViewport = page.getViewport({ scale });
+
+                        // 设置画布尺寸
+                        canvas.height = scaledViewport.height;
+                        canvas.width = scaledViewport.width;
+
+                        // 清理画布
+                        context.clearRect(0, 0, canvas.width, canvas.height);
+
+                        // 渲染页面
+                        await page.render({
+                            canvasContext: context,
+                            viewport: scaledViewport
+                        }).promise;
+
+                        console.log('Page rendered:', this.pdfPage);
+                    } catch (error) {
+                        this.error = '加载 PDF 失败，请重试';
+                        console.error('renderPdf failed:', error);
+                    }
+                },
+                prevPdfPage() {
+                    if (this.pdfPage > 1) {
+                        this.pdfPage--;
+                        this.renderPdf();
+                    }
+                },
+                nextPdfPage() {
+                    if (this.pdfPage < this.totalPdfPages) {
+                        this.pdfPage++;
+                        this.renderPdf();
+                    }
                 }
             }
         });
