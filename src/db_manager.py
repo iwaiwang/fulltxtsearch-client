@@ -29,6 +29,10 @@ class IndexedFileManager:
                     indexed_time REAL -- 索引到 OpenSearch 的时间戳
                 )
             ''')
+            # 为 file_path 字段添加索引
+            cursor.execute('''
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_file_path ON indexed_files (file_path)
+            ''')
             conn.commit()
             logger.info(f"SQLite database table 'indexed_files' checked/created at {self.db_path}")
         except sqlite3.Error as e:
@@ -152,36 +156,3 @@ class IndexedFileManager:
             if conn:
                 conn.close()
         return indexed_files
-
-# # 简单的测试
-# if __name__ == "__main__":
-#     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-#     db_manager = IndexedFileManager("test_indexed_files.db")
-
-#     test_file1 = "/path/to/file1.pdf"
-#     test_file2 = "/path/to/file2.pdf"
-#     test_file3 = "/path/to/file3.pdf" # Will be "modified"
-
-#     # 模拟文件时间戳
-#     time1 = os.time() - 1000
-#     time2 = os.time() - 500
-#     time3_old = os.time() - 800
-#     time3_new = os.time() - 100 # Modified later
-
-#     print(f"Is {test_file1} indexed? {db_manager.is_indexed(test_file1, time1)}")
-#     db_manager.mark_as_indexed(test_file1, time1)
-#     print(f"Is {test_file1} indexed now? {db_manager.is_indexed(test_file1, time1)}") # Should be True
-
-#     db_manager.mark_as_indexed(test_file3, time3_old)
-#     print(f"Is {test_file3} (old time) indexed? {db_manager.is_indexed(test_file3, time3_old)}") # Should be True
-#     print(f"Is {test_file3} (new time) indexed? {db_manager.is_indexed(test_file3, time3_new)}") # Should be False
-
-#     print("All indexed files:", db_manager.get_all_indexed_files())
-
-#     db_manager.remove_indexed_record(test_file1)
-#     print(f"Is {test_file1} indexed after removal? {db_manager.is_indexed(test_file1, time1)}") # Should be False
-
-#     # 清理测试文件
-#     # import os
-#     # if os.path.exists("test_indexed_files.db"):
-#     #     os.remove("test_indexed_files.db")
