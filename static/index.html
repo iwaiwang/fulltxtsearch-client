@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全文检索工具</title>
+    <title>某医院病案全文检索平台</title>
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios@0.21.1/dist/axios.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.min.js"></script>
@@ -79,10 +79,28 @@
             gap: 10px;
             margin-bottom: 10px;
         }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .logo {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+        }
     </style>
 </head>
 <body>
     <div id="app" class="search-container">
+        <!-- 页眉：Logo 和标题 -->
+        <div class="header">
+            <img src="/static/images/logo.png" alt="医院Logo" class="logo">
+            <h1 class="text-3xl font-bold text-gray-800">某医院病案全文检索平台</h1>
+            <div class="w-12"></div> <!-- 占位，平衡布局 -->
+        </div>
+
         <!-- 搜索栏 -->
         <div class="mb-6">
             <input 
@@ -92,14 +110,16 @@
                 placeholder="请输入搜索关键词..." 
                 class="w-full p-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-            <button 
-                @click="search(1)" 
-                class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-                搜索
-            </button>
-            <p v-if="error" class="text-red-500 mt-2">{{ error }}</p>
-            <p v-if="total > 0" class="text-gray-600 mt-2">
+            <div class="flex justify-center mt-2">
+                <button 
+                    @click="search(1)" 
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                    搜索
+                </button>
+            </div>
+            <p v-if="error" class="text-red-500 mt-2 text-center">{{ error }}</p>
+            <p v-if="total > 0" class="text-gray-600 mt-2 text-center">
                 找到 {{ total }} 条结果
             </p>
         </div>
@@ -270,9 +290,8 @@
                     }
                     const newPdfUrl = `/api/pdf?filename=${encodeURIComponent(result.filename)}`;
                     console.log('New pdfUrl:', newPdfUrl, 'Current pdfUrl:', this.pdfUrl);
-                    // 重置 PDF 状态
                     if (this.pdfUrl !== newPdfUrl) {
-                        this.pdfDocument = null; // 清除旧文档
+                        this.pdfDocument = null;
                         this.totalPdfPages = 1;
                     }
                     this.pdfUrl = newPdfUrl;
@@ -292,7 +311,6 @@
                         return;
                     }
                     try {
-                        // 加载新 PDF 文档
                         if (!this.pdfDocument) {
                             console.log('Loading new PDF document:', this.pdfUrl);
                             this.pdfDocument = await pdfjsLib.getDocument(this.pdfUrl).promise;
@@ -300,14 +318,12 @@
                             console.log('PDF loaded, total pages:', this.totalPdfPages);
                         }
 
-                        // 验证页面编号
                         if (this.pdfPage < 1 || this.pdfPage > this.totalPdfPages) {
                             this.error = `无效的页面编号: ${this.pdfPage}`;
                             console.error('Invalid page number:', this.pdfPage);
                             this.pdfPage = 1;
                         }
 
-                        // 获取页面
                         const page = await this.pdfDocument.getPage(this.pdfPage);
                         const canvas = document.getElementById('pdf-canvas');
                         if (!canvas) {
@@ -317,21 +333,17 @@
                         }
                         const context = canvas.getContext('2d');
 
-                        // 自适应缩放
                         const container = document.querySelector('.pdf-viewer');
                         const containerWidth = container.clientWidth - 20;
                         const viewport = page.getViewport({ scale: 1 });
                         const scale = Math.min(containerWidth / viewport.width, 1.5);
                         const scaledViewport = page.getViewport({ scale });
 
-                        // 设置画布尺寸
                         canvas.height = scaledViewport.height;
                         canvas.width = scaledViewport.width;
 
-                        // 清理画布
                         context.clearRect(0, 0, canvas.width, canvas.height);
 
-                        // 渲染页面
                         await page.render({
                             canvasContext: context,
                             viewport: scaledViewport
