@@ -456,6 +456,8 @@
                 },
                 async renderPdf() {
                     console.log('renderPdf called with pdfUrl:', this.pdfUrl, 'page:', this.pdfPage);
+                    this.error = ''; // 清除之前的错误信息
+
                     if (!this.pdfUrl) {
                         console.log('No pdfUrl, skipping render');
                         return;
@@ -466,17 +468,29 @@
                         return;
                     }
                     try {
-                        if (!this.pdfDocument) {
+                        if (!this.pdfDocument || (this.pdfDocument.loadingTask && this.pdfDocument.loadingTask.url !== this.pdfUrl)) {
                             console.log('Loading new PDF document:', this.pdfUrl);
+                            // 如果是新的 PDF URL，取消之前的加载任务（如果有）并加载新的
+                            if (this.pdfDocument && this.pdfDocument.loadingTask) {
+                                try { this.pdfDocument.loadingTask.destroy(); } catch (e) { console.warn("Failed to destroy previous loading task:", e); }
+                            }
                             this.pdfDocument = await pdfjsLib.getDocument(this.pdfUrl).promise;
                             this.totalPdfPages = this.pdfDocument.numPages;
                             console.log('PDF loaded, total pages:', this.totalPdfPages);
+
+                            // 如果加载了新文档，重置到第一页（或者检查当前页是否超出范围）
+                            if (this.pdfPage > this.totalPdfPages) {
+                                this.pdfPage = 1;
+                            }
                         }
 
                         if (this.pdfPage < 1 || this.pdfPage > this.totalPdfPages) {
-                            this.error = `无效的页面编号: ${this.pdfPage}`;
+                            this.error = `无效的页面编号: ${this.pdfPage}. 总页数: ${this.totalPdfPages}`;
                             console.error('Invalid page number:', this.pdfPage);
+                            // 可以选择在此处修正页码并重新调用 renderPdf，或者直接渲染第一页
                             this.pdfPage = 1;
+                            // return this.renderPdf(); // 递归调用，注意栈溢出风险
+                            // 或者直接继续使用修正后的 this.pdfPage
                         }
 
                         const page = await this.pdfDocument.getPage(this.pdfPage);
@@ -489,14 +503,16 @@
                         const context = canvas.getContext('2d');
 
                         const container = document.querySelector('.pdf-viewer');
-                        const containerWidth = container.clientWidth - 20;
+                        // 确保 container 存在，避免错误
+                        const containerWidth = container ? container.clientWidth - 20 : 800; // 留一些边距, 提供默认值
                         const viewport = page.getViewport({ scale: 1 });
-                        const scale = Math.min(containerWidth / viewport.width, 1.5);
+                        const scale = Math.min(containerWidth / viewport.width, 1.5); // 最大缩放1.5倍原始尺寸
                         const scaledViewport = page.getViewport({ scale });
 
                         canvas.height = scaledViewport.height;
                         canvas.width = scaledViewport.width;
 
+                        // 清除 Canvas
                         context.clearRect(0, 0, canvas.width, canvas.height);
 
                         // 渲染 PDF 页面
@@ -507,64 +523,113 @@
 
                         // 高亮关键词
                         if (this.query) {
-                            const textLayerDiv = document.getElementById('text-layer');
-                            textLayerDiv.innerHTML = ''; // 清空文本层
-                            textLayerDiv.style.width = `${scaledViewport.width}px`;
-                            textLayerDiv.style.height = `${scaledViewport.height}px`;
+                            // 注意: 这里的 text-layer div 在您原始代码中仅被设置了尺寸，但高亮是绘制在 Canvas 上。
+                            // 如果您原本打算使用文本层进行高亮，这段设置尺寸的代码是文本层方法的一部分，
+                            // 但在纯 Canvas 绘制高亮的方法中，它并没有实际作用。
+                            // 如果您坚持 Canvas 绘制，可以移除对 text-layer div 的操作，以避免混淆。
+                            // const textLayerDiv = document.getElementById('text-layer');
+                            // if (textLayerDiv) { // 检查元素是否存在
+                            //    textLayerDiv.innerHTML = ''; // 清空文本层内容 (如果它用于其他目的)
+                            //    textLayerDiv.style.width = `${scaledViewport.width}px`;
+                            //    textLayerDiv.style.height = `${scaledViewport.height}px`;
+                            //    // 在 Canvas 绘制高亮的方法中，这些设置不会影响 Canvas 上的高亮位置或尺寸。
+                            // }
+
 
                             const textContent = await page.getTextContent();
                             const keywords = this.query.trim().split(/\s+/).filter(k => k);
                             const highlightRects = [];
 
-                            textContent.items.forEach(item => {
-                                if (!item.str) return;
-                                keywords.forEach(keyword => {
-                                    const regex = new RegExp(keyword, 'gi');
-                                    let match;
-                                    while ((match = regex.exec(item.str)) !== null) {
-                                        const startIdx = match.index;
-                                        const endIdx = startIdx + keyword.length;
+                            if (keywords.length > 0) {
+                                textContent.items.forEach(item => {
+                                    if (!item.str) return;
+                                    keywords.forEach(keyword => {
+                                        // 使用全局和不区分大小写的正则表达式
+                                        const regex = new RegExp(keyword, 'gi');
+                                        let match;
+                                        // 在 item.str 中查找所有匹配项
+                                        while ((match = regex.exec(item.str)) !== null) {
+                                            const startIdx = match.index;
+                                            // const endIdx = startIdx + keyword.length; // 未使用
 
-                                        // 计算字符宽度（考虑中文等宽字符）
-                                        const charCount = [...item.str].length; // 按字符计数
-                                        const charWidth = item.width / charCount || 10; // 默认 10px
-                                        const x = item.transform[4] * scale;
-                                        const y = scaledViewport.height - (item.transform[5] + item.height) * scale;
-                                        const width = charWidth * keyword.length * scale;
-                                        const height = item.height * scale;
+                                            // --- 潜在的错位问题来源 ---
+                                            // 1. 字符宽度估算: item.width 是整个 item.str 的总宽度。
+                                            //    item.width / charCount 假设所有字符等宽，这对于比例字体是不准确的。
+                                            //    使用 startIdx * charWidth 来计算偏移会导致基于字符索引的计算与实际像素位置不符。
+                                            //    这是导致高亮错位的主要原因之一。
+                                            const charCount = [...item.str].length; // 按字符计数
+                                            const charWidth = item.width / charCount || 10; // 估算字符宽度 (不准确)
 
-                                        const rect = {
-                                            x: x + (startIdx * charWidth * scale),
-                                            y: y,
-                                            width: width,
-                                            height: height
-                                        };
-                                        highlightRects.push(rect);
+                                            // 2. 坐标转换: 将 PDF 坐标转换为 Canvas 坐标。
+                                            //    item.transform[4] 是 X 坐标 (通常是文本块的左边或起始位置)。
+                                            //    item.transform[5] 是 Y 坐标 (通常是文本块的基线或底部)。
+                                            //     scaledViewport.height - (item.transform[5] + item.height) * scale 尝试计算 Canvas 上高亮矩形顶部的 Y 坐标。
+                                            //    这个转换通常是正确的，但依赖于 PDF.js 如何报告 item.transform[5] 和 item.height。
+                                            const x = item.transform[4] * scale;
+                                            const y = scaledViewport.height - (item.transform[5] + item.height) * scale; // Canvas Y (顶部向下)
+                                            const width = charWidth * keyword.length * scale; // 估算的关键词宽度 (不准确)
+                                            const height = item.height * scale; // 缩放后的文本行高度
 
-                                        //console.log(`Highlighting "${keyword}" at x:${rect.x}, y:${rect.y}, w:${rect.width}, h:${rect.height}`);
-                                    }
+                                            // 估算关键词起始位置的 X 坐标
+                                            // 这个计算依赖于不准确的 charWidth 估算
+                                            const keywordStartX = x + (startIdx * charWidth * scale);
+
+
+                                            const rect = {
+                                                // 使用估算出的关键词起始 X 坐标
+                                                x: keywordStartX,
+                                                y: y, // 高亮矩形的顶部 Y 坐标
+                                                width: width,
+                                                height: height
+                                            };
+                                            highlightRects.push(rect);
+
+                                            //console.log(`Highlighting "${match}" at x:${rect.x}, y:${rect.y}, w:${rect.width}, h:${rect.height} based on item "${item.str}"`);
+                                        }
+                                    });
                                 });
-                            });
-
+                            }
                             // 绘制高亮矩形
-                            context.globalAlpha = 0.3; // 半透明高亮
-                            context.fillStyle = 'yellow';
+                            // --- 不透明的框框问题来源 ---
+                            // context.globalAlpha = 0.3; // 设置半透明度
+                            // context.fillStyle = 'yellow'; // 设置填充颜色
+                            // 如果多个高亮矩形重叠，它们的透明度会在 Canvas 上叠加，导致重叠区域颜色更深，接近不透明。
+                            // 这是 Canvas 绘制的固有行为，在这种直接绘制方法下很难避免。
+
+                            // 建议直接使用带 Alpha 通道的颜色，并可能保留 globalAlpha=1.0
+                            context.fillStyle = 'rgba(255, 255, 0, 0.3)'; // 半透明黄色
+
                             highlightRects.forEach(rect => {
+                                // 绘制半透明矩形
+                                // 设置 globalAlpha 会影响后续所有绘制，如果想对每个矩形独立设置，需要更复杂的逻辑
+                                // 保持 globalAlpha=1.0，使用 rgba 填充色通常更直观一些
+                                // context.globalAlpha = 0.3; // 如果在这里设置，每次绘制都会应用此 alpha
                                 context.fillRect(rect.x, rect.y, rect.width, rect.height);
-                                // 调试边框
+
+                                // 调试边框 (如果开启，会绘制不透明的红色框框)
                                 if (this.debugHighlight) {
-                                    context.globalAlpha = 1.0;
+                                    const originalAlpha = context.globalAlpha; // 保存当前 alpha
+                                    context.globalAlpha = 1.0; // 绘制调试边框时完全不透明
                                     context.strokeStyle = 'red';
                                     context.strokeRect(rect.x, rect.y, rect.width, rect.height);
+                                    context.globalAlpha = originalAlpha; // 恢复之前的 alpha
                                 }
                             });
-                            context.globalAlpha = 1.0; // 恢复不透明
+
+                            // context.globalAlpha = 1.0; // 恢复全局不透明 (如果在前面设置了)
                         }
 
                         console.log('Page rendered:', this.pdfPage);
+                        // 如果您在组件中使用，可能需要 emit 一个事件表示渲染完成
+                        // this.$emit('page-rendered', this.pdfPage);
+
                     } catch (error) {
                         this.error = '加载 PDF 失败，请重试';
                         console.error('renderPdf failed:', error);
+                        // 如果加载失败，清除文档对象，以便下次尝试重新加载
+                        this.pdfDocument = null;
+                        // 如果您在组件中使用，可能需要 emit 一个错误事件
+                        // this.$emit('render-error', error);
                     }
                 },
                 prevPdfPage() {
