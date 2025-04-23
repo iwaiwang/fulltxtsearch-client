@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3'
 services:
   flask:
     build: .
@@ -26,8 +26,10 @@ services:
       - "9600:9600"
     volumes:
       - opensearch-data:/usr/share/opensearch/data
+      - ./install_ik.sh:/usr/share/opensearch/install-ik.sh # 安装分词器脚本
     networks:
       - app-network
+    command: ["/bin/bash", "-c", "chmod +x /usr/share/opensearch/install-ik.sh && /usr/share/opensearch/install-ik.sh"] # 执行脚本
 
 volumes:
   opensearch-data:
