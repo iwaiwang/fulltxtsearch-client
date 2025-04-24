@@ -5,7 +5,7 @@ import opensearchpy
 import logging
 import datetime
 import json # Keep json for logging/debugging
-from webdav_client import WebDavClient
+from webdav_client import WebDavClient,OperationFailed
 import io # For handling byte streams
 
 # Import the new SettingsManager class
@@ -237,7 +237,7 @@ def get_pdf():
     webdav_enabled = webdav_settings.get('enabled', False)
     webdav_ip = webdav_settings.get('ip')
     webdav_user = webdav_settings.get('user')
-    webdav_port = webdav_settings.get('user')
+    webdav_port = webdav_settings.get('port')
     webdav_password = webdav_settings.get('password')
     webdav_directory = webdav_settings.get('directory', '/') # Default to root if not specified
 
@@ -262,15 +262,9 @@ def get_pdf():
             logger.info(f"Successfully fetched '{filename}' from WebDAV.")
             return send_file(byte_stream, mimetype='application/pdf',download_name=filename)
 
-        except WebDavClient.exceptions.RemoteResourceNotFound:
-            logger.warning(f"没有发现 '{filename}' 在webdav服务器 {webdav_ip} path {path_for_client}")
-            return jsonify({'error': f'PDF not found on WebDAV: {filename}'}), 404
-        except WebDavClient.exceptions.ConnectionError as e:
-             logger.error(f"webdav连接错误: {e}", exc_info=True)
-             return jsonify({'error': f'连接WebDAV服务器失败: {str(e)}'}), 500
-        except WebDavClient.exceptions.AuthenticationError as e:
-             logger.error(f"WebDAV认证失败: {e}", exc_info=True)
-             return jsonify({'error': 'WebDAV认证失败。请检查用户名和密码。'}), 401
+        except OperationFailed as e:
+            logger.error(f" webdav 失败'{e.reason}'  {webdav_ip} path {path_for_client}")
+            return jsonify({'error': f'WebDAV: {filename}'}), 404
         except Exception as e:
             logger.error(f"Unexpected error during WebDAV fetch of '{filename}': {e}", exc_info=True)
             return jsonify({'error': f'从WebDAV获取文件时发生未知错误: {str(e)}'}), 500
