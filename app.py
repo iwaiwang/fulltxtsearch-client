@@ -233,7 +233,7 @@ def get_pdf():
          return jsonify({'error': '文件名不能为空'}), 400
 
     #webdav有可能在运行中被修改,所以每次都要加载一下设置
-    webdav_settings = app_settings.get_webdav_settings()
+    webdav_settings = settings_manager.get_webdav_settings()
     webdav_enabled = webdav_settings.get('enabled', False)
     webdav_ip = webdav_settings.get('ip')
     webdav_user = webdav_settings.get('user')
