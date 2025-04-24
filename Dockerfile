@@ -1,5 +1,5 @@
 # 使用官方 Python 3.9 轻量镜像
-FROM python:3.9-slim
+FROM python:3.13-slim
 
 # 设置工作目录
 WORKDIR /app
@@ -12,7 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # 暴露端口
-EXPOSE 8000
+EXPOSE 5001
 
 # 设置环境变量
 ENV FLASK_APP=app.py
