@@ -18,8 +18,6 @@ services:
     image: opensearchproject/opensearch:2.18.0
     environment:
       - discovery.type=single-node
-      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
-      - plugins.security.disabled=true # 开发环境禁用安全插件
       - OPENSEARCH_INITIAL_ADMIN_PASSWORD=123@QWE#asd
     ports:
       - "9200:9200"
