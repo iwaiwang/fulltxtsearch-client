@@ -84,8 +84,9 @@
         .header {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: space-between; /* 修改为 space-between */
             margin-bottom: 20px;
+            width: 100%; /* 确保header占据全部宽度 */
         }
         .logo {
             width: 50px;
@@ -131,18 +132,70 @@
             width: 100%;
             height: 100%;
         }
+
+        /* Modal styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000; /* Ensure it's on top */
+        }
+        .modal-content {
+            background-color: white;
+            padding: 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 400px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.875rem; /* sm */
+            font-weight: 500; /* medium */
+            color: #4a5568; /* gray-700 */
+            margin-bottom: 4px;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="password"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            box-sizing: border-box; /* Include padding in width */
+        }
+        .form-group input[type="checkbox"] {
+             margin-right: 8px;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 24px;
+        }
     </style>
 </head>
 <body>
     <div id="app" class="search-container">
-        <!-- 页眉：Logo 和标题 -->
         <div class="header">
             <img src="/static/images/logo.png" alt="医院Logo" class="logo">
             <h1 class="text-3xl font-bold text-gray-800">某医院病案全文检索平台</h1>
-            <div class="w-12"></div>
+            <button 
+                @click="openSettingsModal" 
+                class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 text-sm"
+            >
+                设置 WebDAV
+            </button>
         </div>
 
-        <!-- 搜索栏 -->
         <div class="mb-6">
             <input 
                 v-model="query" 
@@ -151,7 +204,6 @@
                 placeholder="请输入搜索关键词..." 
                 class="w-full p-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-            <!-- 按钮组：搜索和展开高级过滤 -->
             <div class="button-group">
                 <button 
                     @click="toggleFilters" 
@@ -170,7 +222,6 @@
                     搜索
                 </button>
             </div>
-            <!-- 折叠面板 -->
             <div v-if="showFilters" class="filter-panel">
                 <div class="filter-grid">
                     <div>
@@ -241,9 +292,7 @@
             </p>
         </div>
 
-        <!-- 搜索结果与PDF预览 -->
         <div class="flex space-x-4">
-            <!-- 搜索结果列表 -->
             <div class="w-1/3">
                 <div v-if="results.length === 0 && query" class="text-gray-500">
                     无搜索结果
@@ -259,7 +308,6 @@
                     <p class="text-sm" v-html="result.text"></p>
                 </div>
 
-                <!-- 分页导航 -->
                 <div class="pagination" v-if="total_pages > 1">
                     <button @click="prevPage" :disabled="current_page <= 1">上一页</button>
                     <span v-for="page in pageRange" :key="page">
@@ -274,14 +322,12 @@
                 </div>
             </div>
 
-            <!-- PDF预览 -->
             <div class="w-2/3">
                 <div v-if="!pdfUrl" class="text-gray-500 pdf-placeholder">
                     请双击搜索结果以加载PDF
                 </div>
                 <div v-else class="pdf-viewer">
                     <div class="pdf-container">
-                        <!-- 翻页控件 -->
                         <div class="pdf-controls">
                             <button 
                                 @click="prevPdfPage" 
@@ -299,7 +345,6 @@
                                 下一页
                             </button>
                         </div>
-                        <!-- PDF 画布和文本层 -->
                         <div style="position: relative;">
                             <canvas id="pdf-canvas"></canvas>
                             <div id="text-layer" class="text-layer"></div>
@@ -308,6 +353,56 @@
                 </div>
             </div>
         </div>
+
+        <div v-if="showSettingsModal" class="modal-overlay">
+            <div class="modal-content">
+                <h2 class="text-xl font-bold mb-4">WebDAV 设置</h2>
+
+                <div class="flex space-x-4 form-group">
+                    <div class="flex-2"> <label for="webdav-ip">WebDAV 地址 (IP/域名)</label>
+                        <input type="text" id="webdav-ip" v-model="webdavSettings.ip" placeholder="192.168.1.100 or webdav.example.com" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="flex-1"> <label for="webdav-port">端口</label>
+                        <input type="number" id="webdav-port" v-model="webdavSettings.port" placeholder="5000" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <div class="flex space-x-4 form-group">
+                    <div class="flex-1"> <label for="webdav-user">用户名</label>
+                        <input type="text" id="webdav-user" v-model="webdavSettings.user" placeholder="请输入用户名" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="flex-1"> <label for="webdav-password">密码</label>
+                        <input type="password" id="webdav-password" v-model="webdavSettings.password" placeholder="请输入密码" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="webdav-directory">初始目录</label>
+                    <input type="text" id="webdav-directory" v-model="webdavSettings.directory" placeholder="e.g. /path/to/files" class="w-full p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div class="form-group flex items-center">
+                    <input type="checkbox" id="enable-webdav" v-model="webdavSettings.enabled" class="mr-2">
+                    <label for="enable-webdav" class="mb-0 text-gray-700">启用 WebDAV 同步</label>
+                </div>
+
+                <div class="modal-buttons">
+                    <button
+                        @click="closeSettingsModal"
+                        class="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 text-gray-800"
+                    >
+                        取消
+                    </button>
+                    <button
+                        @click="saveSettings"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                        保存
+                    </button>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -343,7 +438,18 @@
                 total_pages: 0,
                 error: '',
                 pdfDocument: null,
-                debugHighlight: true // 调试模式，显示高亮边框
+                debugHighlight: true, // 调试模式，显示高亮边框
+
+                // New WebDAV settings data
+                showSettingsModal: false,
+                webdavSettings: {
+                    ip: '',
+                    port: 0,
+                    user: '',
+                    password: '',
+                    directory: '',
+                    enabled: false
+                }
             },
             computed: {
                 pageRange() {
@@ -371,6 +477,10 @@
                     .catch(error => {
                         console.error('Failed to load file types:', error);
                     });
+
+                // Optional: Load existing settings when the page loads
+                // You would need a backend endpoint for this, e.g., '/api/get_webdav_settings'
+                // this.loadWebdavSettings();
             },
             methods: {
                 toggleFilters() {
@@ -383,8 +493,19 @@
                             admissionDateStart: '',
                             admissionDateEnd: '',
                             dischargeDateStart: '',
-                            dischargeDateEnd: '',
+                            requestedDateEnd: '', // Corrected typo? assuming dischargeDateEnd was intended
+                            dischargeDateEnd: '', // Corrected typo?
                             fileType: ''
+                        };
+                         // If you want to clear filters when collapsing:
+                        this.filters = {
+                             patientName: '',
+                             hospitalId: '',
+                             admissionDateStart: '',
+                             admissionDateEnd: '',
+                             dischargeDateStart: '',
+                             dischargeDateEnd: '',
+                             fileType: ''
                         };
                     }
                 },
@@ -468,30 +589,37 @@
                         return;
                     }
                     try {
-                        if (!this.pdfDocument || (this.pdfDocument.loadingTask && this.pdfDocument.loadingTask.url !== this.pdfUrl)) {
+                         if (!this.pdfDocument || (this.pdfDocument.loadingTask && this.pdfDocument.loadingTask.url !== this.pdfUrl)) {
                             console.log('Loading new PDF document:', this.pdfUrl);
                             // 如果是新的 PDF URL，取消之前的加载任务（如果有）并加载新的
-                            if (this.pdfDocument && this.pdfDocument.loadingTask) {
-                                try { this.pdfDocument.loadingTask.destroy(); } catch (e) { console.warn("Failed to destroy previous loading task:", e); }
-                            }
+                             if (this.pdfDocument && this.pdfDocument.loadingTask && !this.pdfDocument.loadingTask.destroyed) { // Check if destroy method exists and not already destroyed
+                                try { 
+                                    if (typeof this.pdfDocument.loadingTask.destroy === 'function') {
+                                         this.pdfDocument.loadingTask.destroy();
+                                    } else {
+                                         console.warn("Previous loading task has no destroy method or already destroyed.");
+                                    }
+                                } catch (e) { console.warn("Failed to destroy previous loading task:", e); }
+                             }
                             this.pdfDocument = await pdfjsLib.getDocument(this.pdfUrl).promise;
                             this.totalPdfPages = this.pdfDocument.numPages;
                             console.log('PDF loaded, total pages:', this.totalPdfPages);
 
                             // 如果加载了新文档，重置到第一页（或者检查当前页是否超出范围）
-                            if (this.pdfPage > this.totalPdfPages) {
-                                this.pdfPage = 1;
+                             if (this.pdfPage < 1 || this.pdfPage > this.totalPdfPages) {
+                                console.warn(`Adjusting PDF page from ${this.pdfPage} to 1 as it is out of bounds for new document with ${this.totalPdfPages} pages.`);
+                                this.pdfPage = 1; // Reset to a valid page
                             }
-                        }
 
-                        if (this.pdfPage < 1 || this.pdfPage > this.totalPdfPages) {
+                        } else if (this.pdfPage < 1 || this.pdfPage > this.totalPdfPages) {
+                             // Handle case where pdfDocument is the same, but the page number is out of bounds
                             this.error = `无效的页面编号: ${this.pdfPage}. 总页数: ${this.totalPdfPages}`;
-                            console.error('Invalid page number:', this.pdfPage);
-                            // 可以选择在此处修正页码并重新调用 renderPdf，或者直接渲染第一页
-                            this.pdfPage = 1;
-                            // return this.renderPdf(); // 递归调用，注意栈溢出风险
-                            // 或者直接继续使用修正后的 this.pdfPage
-                        }
+                            console.error('Invalid page number for existing document:', this.pdfPage);
+                             // You might want to reset the page here or just display the error
+                             // this.pdfPage = 1; // Option to reset to page 1
+                             return; // Stop rendering if page is invalid
+                         }
+
 
                         const page = await this.pdfDocument.getPage(this.pdfPage);
                         const canvas = document.getElementById('pdf-canvas');
@@ -521,103 +649,88 @@
                             viewport: scaledViewport
                         }).promise;
 
-                        // 高亮关键词
-                        if (this.query) {
-                            // 注意: 这里的 text-layer div 在您原始代码中仅被设置了尺寸，但高亮是绘制在 Canvas 上。
-                            // 如果您原本打算使用文本层进行高亮，这段设置尺寸的代码是文本层方法的一部分，
-                            // 但在纯 Canvas 绘制高亮的方法中，它并没有实际作用。
-                            // 如果您坚持 Canvas 绘制，可以移除对 text-layer div 的操作，以避免混淆。
-                            // const textLayerDiv = document.getElementById('text-layer');
-                            // if (textLayerDiv) { // 检查元素是否存在
-                            //    textLayerDiv.innerHTML = ''; // 清空文本层内容 (如果它用于其他目的)
-                            //    textLayerDiv.style.width = `${scaledViewport.width}px`;
-                            //    textLayerDiv.style.height = `${scaledViewport.height}px`;
-                            //    // 在 Canvas 绘制高亮的方法中，这些设置不会影响 Canvas 上的高亮位置或尺寸。
-                            // }
+                         // Highlighting keywords (re-using your existing logic)
+                         if (this.query && this.pdfDocument) { // Only highlight if there's a query and a document is loaded
+                             try {
+                                const textContent = await page.getTextContent();
+                                const keywords = this.query.trim().split(/\s+/).filter(k => k);
+                                const highlightRects = [];
+
+                                if (keywords.length > 0) {
+                                    textContent.items.forEach(item => {
+                                        if (!item.str) return;
+                                        keywords.forEach(keyword => {
+                                            const regex = new RegExp(keyword, 'gi');
+                                            let match;
+                                            while ((match = regex.exec(item.str)) !== null) {
+                                                const startIdx = match.index;
+                                                const matchedString = match[0]; // Use the actual matched string for width estimation
+                                                const fullString = item.str; // The full string of the text item
+
+                                                // More accurate position and width calculation (still an approximation)
+                                                // We need to estimate the width of the text *before* the match
+                                                // and the width of the matched text within the item string.
+                                                // This is complex with non-monospace fonts and PDF.js item data.
+                                                // A common approach is to get BBox data if available, but textContent.items doesn't provide this per character easily.
+                                                // The current method of using item.transform[4] + startIdx * charWidth * scale is a *very* rough estimate.
+
+                                                // A slightly better approach might involve trying to render text layers (as PDF.js examples do)
+                                                // or making assumptions about average character width *within this specific item's font/style*.
+
+                                                // Let's stick to a slightly refined version of the current approach but acknowledge its limitations.
+                                                // We'll try to estimate the start position based on the proportion of the string before the match.
+                                                const proportionBeforeMatch = startIdx / fullString.length;
+                                                const estimatedStartXInItem = item.width * proportionBeforeMatch;
+
+                                                const estimatedMatchWidth = item.width * (matchedString.length / fullString.length);
 
 
-                            const textContent = await page.getTextContent();
-                            const keywords = this.query.trim().split(/\s+/).filter(k => k);
-                            const highlightRects = [];
+                                                const x = (item.transform[4] + estimatedStartXInItem) * scale;
+                                                // PDF.js Y is often the baseline. Adjusting to the top of the text block.
+                                                // item.transform[5] is the baseline Y in PDF coordinates.
+                                                // item.height is the height of the text block.
+                                                // In PDF, Y=0 is at the bottom. In Canvas, Y=0 is at the top.
+                                                // Canvas Y = scaledViewport.height - (PDF Y + PDF height) * scale
+                                                const y = scaledViewport.height - (item.transform[5] + item.height) * scale;
 
-                            if (keywords.length > 0) {
-                                textContent.items.forEach(item => {
-                                    if (!item.str) return;
-                                    keywords.forEach(keyword => {
-                                        // 使用全局和不区分大小写的正则表达式
-                                        const regex = new RegExp(keyword, 'gi');
-                                        let match;
-                                        // 在 item.str 中查找所有匹配项
-                                        while ((match = regex.exec(item.str)) !== null) {
-                                            const startIdx = match.index;
-                                            // const endIdx = startIdx + keyword.length; // 未使用
+                                                const width = estimatedMatchWidth * scale;
+                                                const height = item.height * scale; // Scaled height of the text line
 
-                                            // --- 潜在的错位问题来源 ---
-                                            // 1. 字符宽度估算: item.width 是整个 item.str 的总宽度。
-                                            //    item.width / charCount 假设所有字符等宽，这对于比例字体是不准确的。
-                                            //    使用 startIdx * charWidth 来计算偏移会导致基于字符索引的计算与实际像素位置不符。
-                                            //    这是导致高亮错位的主要原因之一。
-                                            const charCount = [...item.str].length; // 按字符计数
-                                            const charWidth = item.width / charCount || 10; // 估算字符宽度 (不准确)
+                                                const rect = { x, y, width, height };
+                                                highlightRects.push(rect);
 
-                                            // 2. 坐标转换: 将 PDF 坐标转换为 Canvas 坐标。
-                                            //    item.transform[4] 是 X 坐标 (通常是文本块的左边或起始位置)。
-                                            //    item.transform[5] 是 Y 坐标 (通常是文本块的基线或底部)。
-                                            //     scaledViewport.height - (item.transform[5] + item.height) * scale 尝试计算 Canvas 上高亮矩形顶部的 Y 坐标。
-                                            //    这个转换通常是正确的，但依赖于 PDF.js 如何报告 item.transform[5] 和 item.height。
-                                            const x = item.transform[4] * scale;
-                                            const y = scaledViewport.height - (item.transform[5] + item.height) * scale; // Canvas Y (顶部向下)
-                                            const width = charWidth * keyword.length * scale; // 估算的关键词宽度 (不准确)
-                                            const height = item.height * scale; // 缩放后的文本行高度
-
-                                            // 估算关键词起始位置的 X 坐标
-                                            // 这个计算依赖于不准确的 charWidth 估算
-                                            const keywordStartX = x + (startIdx * charWidth * scale);
-
-
-                                            const rect = {
-                                                // 使用估算出的关键词起始 X 坐标
-                                                x: keywordStartX,
-                                                y: y, // 高亮矩形的顶部 Y 坐标
-                                                width: width,
-                                                height: height
-                                            };
-                                            highlightRects.push(rect);
-
-                                            //console.log(`Highlighting "${match}" at x:${rect.x}, y:${rect.y}, w:${rect.width}, h:${rect.height} based on item "${item.str}"`);
-                                        }
+                                                 // console.log(`Highlighting "${matchedString}" (keyword "${keyword}") in item "${item.str}"`);
+                                                 // console.log(`PDF Coords: x=${item.transform[4]}, y=${item.transform[5]}, width=${item.width}, height=${item.height}`);
+                                                 // console.log(`Estimated Canvas Rect: x=${rect.x}, y=${rect.y}, w=${rect.width}, h=${rect.height}`);
+                                            }
+                                        });
                                     });
-                                });
-                            }
-                            // 绘制高亮矩形
-                            // --- 不透明的框框问题来源 ---
-                            // context.globalAlpha = 0.3; // 设置半透明度
-                            // context.fillStyle = 'yellow'; // 设置填充颜色
-                            // 如果多个高亮矩形重叠，它们的透明度会在 Canvas 上叠加，导致重叠区域颜色更深，接近不透明。
-                            // 这是 Canvas 绘制的固有行为，在这种直接绘制方法下很难避免。
-
-                            // 建议直接使用带 Alpha 通道的颜色，并可能保留 globalAlpha=1.0
-                            context.fillStyle = 'rgba(255, 255, 0, 0.3)'; // 半透明黄色
-
-                            highlightRects.forEach(rect => {
-                                // 绘制半透明矩形
-                                // 设置 globalAlpha 会影响后续所有绘制，如果想对每个矩形独立设置，需要更复杂的逻辑
-                                // 保持 globalAlpha=1.0，使用 rgba 填充色通常更直观一些
-                                // context.globalAlpha = 0.3; // 如果在这里设置，每次绘制都会应用此 alpha
-                                context.fillRect(rect.x, rect.y, rect.width, rect.height);
-
-                                // 调试边框 (如果开启，会绘制不透明的红色框框)
-                                if (this.debugHighlight) {
-                                    const originalAlpha = context.globalAlpha; // 保存当前 alpha
-                                    context.globalAlpha = 1.0; // 绘制调试边框时完全不透明
-                                    context.strokeStyle = 'red';
-                                    context.strokeRect(rect.x, rect.y, rect.width, rect.height);
-                                    context.globalAlpha = originalAlpha; // 恢复之前的 alpha
                                 }
-                            });
 
-                            // context.globalAlpha = 1.0; // 恢复全局不透明 (如果在前面设置了)
-                        }
+                                // Draw highlight rectangles
+                                // Setting globalAlpha here will affect all subsequent draw calls until changed.
+                                // Using rgba fillStyle is generally better for individual transparent shapes.
+                                context.fillStyle = 'rgba(255, 255, 0, 0.3)'; // Semi-transparent yellow
+
+                                highlightRects.forEach(rect => {
+                                    context.fillRect(rect.x, rect.y, rect.width, rect.height);
+
+                                    // Debug border (if enabled)
+                                    if (this.debugHighlight) {
+                                        const originalAlpha = context.globalAlpha;
+                                        context.globalAlpha = 1.0; // Make border opaque
+                                        context.strokeStyle = 'red';
+                                        context.strokeRect(rect.x, rect.y, rect.width, rect.height);
+                                        context.globalAlpha = originalAlpha; // Restore previous alpha
+                                    }
+                                });
+                             } catch (highlightError) {
+                                console.error("Error during highlighting:", highlightError);
+                                // You might want to set an error message specific to highlighting if needed
+                                 // this.error = '高亮关键词失败';
+                             }
+                         }
+
 
                         console.log('Page rendered:', this.pdfPage);
                         // 如果您在组件中使用，可能需要 emit 一个事件表示渲染完成
@@ -627,7 +740,13 @@
                         this.error = '加载 PDF 失败，请重试';
                         console.error('renderPdf failed:', error);
                         // 如果加载失败，清除文档对象，以便下次尝试重新加载
+                        if (this.pdfDocument && typeof this.pdfDocument.destroy === 'function') {
+                            try { this.pdfDocument.destroy(); } catch (e) { console.warn("Failed to destroy document on render error:", e); }
+                        }
                         this.pdfDocument = null;
+                        this.pdfUrl = null; // Clear PDF URL on catastrophic render failure
+                         this.totalPdfPages = 1; // Reset page count
+                         this.pdfPage = 1; // Reset page number
                         // 如果您在组件中使用，可能需要 emit 一个错误事件
                         // this.$emit('render-error', error);
                     }
@@ -643,7 +762,66 @@
                         this.pdfPage++;
                         this.renderPdf();
                     }
-                }
+                },
+
+                // New WebDAV methods
+                async openSettingsModal() {
+                    await this.loadWebdavSettings();
+                    this.showSettingsModal = true;
+                },
+                closeSettingsModal() {
+                    this.showSettingsModal = false;
+                    // Optional: Reset form fields if needed, or keep last saved values
+                },
+                saveSettings() {
+                    // Basic validation (optional)
+                    if (this.webdavSettings.enabled) {
+                        if (!this.webdavSettings.ip || !this.webdavSettings.user || !this.webdavSettings.password) {
+                            alert('启用 WebDAV 时，IP地址、用户名和密码不能为空。');
+                            return;
+                        }
+                    }
+
+                    const settingsPayload = {
+                        ip: this.webdavSettings.ip,
+                        port: this.webdavSettings.port,
+                        user: this.webdavSettings.user,
+                        password: this.webdavSettings.password,
+                        directory: this.webdavSettings.directory,
+                        enabled: this.webdavSettings.enabled
+                    };
+
+                    console.log('Saving WebDAV settings:', settingsPayload);
+
+                    // Replace '/api/save_webdav_settings' with your actual backend endpoint
+                    axios.post('/api/save_webdav_settings', settingsPayload)
+                        .then(response => {
+                            console.log('Settings saved successfully:', response.data);
+                            alert('WebDAV 设置保存成功!');
+                            this.closeSettingsModal();
+                            // Optional: Handle successful save response (e.g., update local state based on backend confirmation)
+                        })
+                        .catch(error => {
+                            console.error('Failed to save settings:', error);
+                             let errorMessage = '保存 WebDAV 设置失败';
+                            if (error.response && error.response.data && error.response.data.detail) {
+                                 errorMessage += ': ' + error.response.data.detail; // Assuming backend sends error details
+                            } else if (error.message) {
+                                errorMessage += ': ' + error.message;
+                            }
+                            alert(errorMessage);
+                        });
+                },
+                 // Optional method to load settings on page load (call this in mounted if needed)
+                 async loadWebdavSettings() {
+                    try {
+                         const response = await axios.get('/api/get_webdav_settings'); // Replace with your actual endpoint
+                         console.log('Loaded existing WebDAV settings:', response.data);
+                         this.webdavSettings = response.data; // Assuming backend returns an object matching webdavSettings structure
+                    } catch (error) {
+                         console.error('Failed to load initial WebDAV settings:', error);
+                    }
+                 }
             }
         });
     </script>

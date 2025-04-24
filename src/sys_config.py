@@ -3,7 +3,7 @@ import json
 import os
 import logging
 
-CONFIG_FILE = "../config/es_config.json"
+CONFIG_FILE = "./config/es_config.json"
 DEFAULT_CONFIG = {
     "opensearch": {
         "host": "https://localhost:9200",

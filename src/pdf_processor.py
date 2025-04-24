@@ -1,4 +1,3 @@
-import pdfplumber
 import os
 import logging
 from search_model import SearchModel
@@ -122,7 +121,9 @@ def main():
     PDF_DIRECTORY = './pdf_files'  # 替换为你的PDF文件目录
 
     # 初始化索引器
-    indexer = OSClient()
+    from sys_config import SysConfig
+    config = SysConfig.load_config().get("opeansearch")
+    indexer = OSClient(config)
     indexer.create_index()
 
     # 索引目录中的所有PDF文件
