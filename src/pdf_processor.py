@@ -1,4 +1,3 @@
-import pdfplumber
 import os
 import logging
 from search_model import SearchModel
