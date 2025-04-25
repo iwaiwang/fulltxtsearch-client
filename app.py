@@ -136,7 +136,7 @@ def search():
         search_query['query']['bool']['filter'].append(
             {
                 'term': {
-                    '文件类型.keyword': file_type
+                    '文件类型': file_type
                 }
             }
         )
@@ -145,7 +145,7 @@ def search():
         search_query['query']['bool']['filter'].append(
             {
                 'term': {
-                    '患者名.keyword': patient_name
+                    '患者名': patient_name
                 }
             }
         )
