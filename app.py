@@ -109,19 +109,16 @@ def search():
     from_idx = (page - 1) * size
 
     search_query = {
-        'query': {
-            'bool': {
-                'must': [
-                    {
-                        'match_phrase': {
-                            '页内容': {
-                                'query': query,
-                                #'analyzer': 'ik_smart'
-                            }
-                        }
-                    }
-                ],
-                'filter': []
+        "query": { 
+            "bool": {
+            "must": [{
+                "query_string": {
+                    "default_field": "页内容",
+                    "query": query
+                }
+                }
+            ],
+            "filter": []
             }
         },
         'from': from_idx,
