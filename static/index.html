@@ -653,7 +653,15 @@
                          if (this.query && this.pdfDocument) { // Only highlight if there's a query and a document is loaded
                              try {
                                 const textContent = await page.getTextContent();
-                                const keywords = this.query.trim().split(/\s+/).filter(k => k);
+                                // === 新增：处理查询字符串，替换特殊字符为空格 ===
+                                let processedQuery = this.query;
+                                if (processedQuery) {
+                                    const charsToReplaceRegex = /\&|\|\||\"|\'/g; // 全局匹配所有要替换的字符/序列
+                                    processedQuery = processedQuery.replace(charsToReplaceRegex, ' ');
+                                } else {
+                                    processedQuery = '';
+                                }
+                                const keywords = processedQuery.trim().split(/\s+/).filter(k => k);
                                 const highlightRects = [];
 
                                 if (keywords.length > 0) {
