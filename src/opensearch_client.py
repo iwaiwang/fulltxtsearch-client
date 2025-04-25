@@ -62,8 +62,8 @@ class OSClient:
                     '住院号': {'type': 'keyword'}, # 使用 keyword 类型以便精确匹配
                     '住院日期': {'type': 'date'},
                     '出院日期': {'type': 'date'},
-                    '文件类型': {'type': 'text'},
-                    '文件目录': {'type': 'text'},
+                    '文件类型': {'type': 'keyword'},
+                    '文件目录': {'type': 'keyword'},
                     '文件名称': {'type': 'keyword'}, # 使用 keyword 类型以便精确匹配
                     '页号': {'type': 'long'},
                     '页内容': {
