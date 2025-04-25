@@ -6,7 +6,7 @@ import json
 class SearchModel:
     def __init__(self) -> None:
         self.患者名= ""
-        self.住院号 = 0
+        self.住院号 = ""
         self.入院时间 = date.today().strftime('%Y-%m-%d')
         self.出院时间 = date.today().strftime('%Y-%m-%d')
         self.文件类型=''
