@@ -295,7 +295,7 @@ def get_file_types():
             'aggs': {
                 'by_type': {
                     'terms': {
-                        'field': '文件类型.keyword',
+                        'field': '文件类型',
                         'size': 100
                     }
                 }
