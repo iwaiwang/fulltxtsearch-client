@@ -8,14 +8,14 @@ pdf的内容按页来存放，索引的格式如下：
    index = {
             'mappings': {
                 'properties': {
-                    '患者名': {'type': 'text'},
-                    '住院号': {'type': 'long'},
+                    '患者名': {'type': 'keyword'},
+                    '住院号': {'type': 'keyword'},
                     '住院日期': {'type': 'date'},
                     '出院日期': {'type': 'date'},
                     '文件类型': {'type': 'text'},
                     '文件目录': {'type': 'text'},
                     '文件名称': {'type': 'text'},
-                    '页号': {'type': 'long'},
+                    '页号': {'type': 'keyword'},
                     '页内容': {
                         'type': 'text',
                         'analyzer': 'ik_max_word',
