@@ -62,7 +62,7 @@ try:
         verify_certs=False, # Consider setting this to True in production with proper CA certs
         ssl_assert_hostname=False,
         ssl_show_warn=False, # Set to True in production for warnings
-        timeout=30,  # Increase timeout to 30 seconds
+        timeout=60,  # Increase timeout to 30 seconds
         max_retries=3,  # Retry failed requests
         retry_on_timeout=True
     )
@@ -101,7 +101,7 @@ def search():
     discharge_date_end = request.args.get('discharge_date_end', '')
 
     page = int(request.args.get('page', 1))
-    size = int(request.args.get('size', 10))
+    size = int(request.args.get('size', 5))
 
     if not query and not hospital_id and not patient_name:
         return jsonify({'results': [], 'total': 0, 'page': page, 'size': size, 'total_pages': 0})
