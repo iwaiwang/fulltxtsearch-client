@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>某医院病案全文检索平台</title>
-    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios@0.21.1/dist/axios.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <title>病案全文检索平台</title>
+    <script src="/static/js/vue.min.js"></script>
+    <script src="/static/js/axios.min.js"></script>
+    <script src="/static/pdfjs/build/pdf.js"></script>
+    <link href="/static/css/tailwind.min.css" rel="stylesheet">
+    <link href="/static/pdfjs/web/viewer.css" rel="stylesheet">
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -34,7 +35,7 @@
             border-radius: 8px;
             padding: 10px;
             overflow: auto;
-            max-height: 80vh;
+            max-height: 140vh;
             min-height: 200px;
         }
         .pdf-container {
@@ -45,7 +46,12 @@
         }
         #pdf-canvas {
             border: 1px solid #e2e8f0;
-            margin-bottom: 10px;
+            box-sizing: border-box;
+            display: block;
+        }
+        .pdf-canvas-text-container {
+            border: 1px solid #e2e8f0; /* 将边框加在这里 */
+            /* 其他必要的样式 */
         }
         strong {
             background-color: #fefcbf;
@@ -124,14 +130,6 @@
             gap: 10px;
             margin-top: 10px;
         }
-        .text-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            pointer-events: none;
-            width: 100%;
-            height: 100%;
-        }
 
         /* Modal styles */
         .modal-overlay {
@@ -181,46 +179,55 @@
             gap: 10px;
             margin-top: 24px;
         }
+        .button-group {
+            /* 移除或修改 justify-content: center; */
+            display: flex;
+            align-items: center;
+            gap: 10px; /* 保持按钮之间的间距 */
+            margin-top: 0; /* 移除或修改 margin-top，让它与输入框同行 */
+        }
     </style>
 </head>
 <body>
     <div id="app" class="search-container">
         <div class="header">
             <img src="/static/images/logo.png" alt="医院Logo" class="logo">
-            <h1 class="text-3xl font-bold text-gray-800">某医院病案全文检索平台</h1>
+            <h1 class="text-3xl font-bold text-gray-800">病案全文检索平台</h1>
             <button 
                 @click="openSettingsModal" 
-                class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 text-sm"
+                class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 text-xs"
             >
                 设置 WebDAV
             </button>
         </div>
 
         <div class="mb-6">
-            <input 
-                v-model="query" 
-                @keyup.enter="search(1)" 
-                type="text" 
-                placeholder="请输入搜索关键词..." 
-                class="w-full p-3 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-            <div class="button-group">
-                <button 
-                    @click="toggleFilters" 
-                    class="toggle-button px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
-                >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                            :d="showFilters ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'" />
-                    </svg>
-                    {{ showFilters ? '收起过滤条件' : '展开高级过滤' }}
-                </button>
-                <button 
-                    @click="search(1)" 
-                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                    搜索
-                </button>
+            <div class="relative flex items-center">
+                <input
+                    v-model="query"
+                    @keyup.enter="search(1)"
+                    type="text"
+                    placeholder='请输入搜索关键词... 例子1:红细胞 && 白细胞  例子2:白细胞 || 红细胞 例子3: "意识障碍"'
+                    class="w-full p-3 pr-[150px] border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                <div class="absolute inset-y-0 right-0 flex items-center ">
+                    <button
+                        @click="toggleFilters"
+                        class="toggle-button px-3 py-3 bg-gray-200 rounded-l-lg hover:bg-gray-300 "
+                        >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                :d="showFilters ? 'M5 15l7-7 7 7' : 'M19 9l-7 7-7-7'" />
+                        </svg>
+                        {{ showFilters ? '收起' : '高级' }}
+                    </button>
+                    <button
+                        @click="search(1)"
+                        class="px-3 py-3.5 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700 text-base"
+                         >
+                        搜索
+                    </button>
+                </div>
             </div>
             <div v-if="showFilters" class="filter-panel">
                 <div class="filter-grid">
@@ -328,26 +335,38 @@
                 </div>
                 <div v-else class="pdf-viewer">
                     <div class="pdf-container">
-                        <div class="pdf-controls">
-                            <button 
-                                @click="prevPdfPage" 
-                                :disabled="pdfPage <= 1"
-                                class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                        <div class="pdf-controls w-full">
+                            <div class="flex items-center gap-2">
+                                <button
+                                    @click="prevPdfPage"
+                                    :disabled="pdfPage <= 1"
+                                    class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                                >
+                                    上一页
+                                </button>
+                                <span>第 {{ pdfPage }} 页 / 共 {{ totalPdfPages }} 页</span>
+                                <button
+                                    @click="nextPdfPage"
+                                    :disabled="pdfPage >= totalPdfPages"
+                                    class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                                >
+                                    下一页
+                                </button>
+                            </div>
+                            <a
+                                :href="pdfUrl"
+                                :download="pdfUrl ? pdfUrl.split('filename=')[1] + '.pdf' : 'download.pdf'"
+                                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 ml-auto"
+                                :class="{ 'pointer-events-none': !pdfUrl }"
+                                :disabled="!pdfUrl"
+                                v-if="pdfUrl"
                             >
-                                上一页
-                            </button>
-                            <span>第 {{ pdfPage }} 页 / 共 {{ totalPdfPages }} 页</span>
-                            <button 
-                                @click="nextPdfPage" 
-                                :disabled="pdfPage >= totalPdfPages"
-                                class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50"
-                            >
-                                下一页
-                            </button>
+                                下载
+                            </a>
                         </div>
-                        <div style="position: relative;">
+                        <div style="position: relative;" class="pdf-canvas-text-container" >
                             <canvas id="pdf-canvas"></canvas>
-                            <div id="text-layer" class="text-layer"></div>
+                            <div id="text-layer" class="textLayer"></div>
                         </div>
                     </div>
                 </div>
@@ -404,434 +423,6 @@
         </div>
 
     </div>
-
-    <script>
-        // 配置 PDF.js 的 workerSrc
-        if (typeof pdfjsLib !== 'undefined') {
-            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.worker.min.js';
-        } else {
-            console.error('pdfjsLib is not loaded');
-        }
-
-        new Vue({
-            el: '#app',
-            data: {
-                query: '',
-                showFilters: false,
-                filters: {
-                    patientName: '',
-                    hospitalId: '',
-                    admissionDateStart: '',
-                    admissionDateEnd: '',
-                    dischargeDateStart: '',
-                    dischargeDateEnd: '',
-                    fileType: ''
-                },
-                fileTypes: [],
-                results: [],
-                pdfUrl: null,
-                pdfPage: 1,
-                totalPdfPages: 1,
-                total: 0,
-                current_page: 1,
-                size: 10,
-                total_pages: 0,
-                error: '',
-                pdfDocument: null,
-                debugHighlight: true, // 调试模式，显示高亮边框
-
-                // New WebDAV settings data
-                showSettingsModal: false,
-                webdavSettings: {
-                    ip: '',
-                    port: 0,
-                    user: '',
-                    password: '',
-                    directory: '',
-                    enabled: false
-                }
-            },
-            computed: {
-                pageRange() {
-                    const range = [];
-                    const maxPages = 5;
-                    let start = Math.max(1, this.current_page - Math.floor(maxPages / 2));
-                    let end = Math.min(this.total_pages, start + maxPages - 1);
-
-                    if (end - start < maxPages - 1) {
-                        start = Math.max(1, end - maxPages + 1);
-                    }
-
-                    for (let i = start; i <= end; i++) {
-                        range.push(i);
-                    }
-                    return range;
-                }
-            },
-            mounted() {
-                // 加载文件类型
-                axios.get('/api/file_types')
-                    .then(response => {
-                        this.fileTypes = response.data;
-                    })
-                    .catch(error => {
-                        console.error('Failed to load file types:', error);
-                    });
-
-                // Optional: Load existing settings when the page loads
-                // You would need a backend endpoint for this, e.g., '/api/get_webdav_settings'
-                // this.loadWebdavSettings();
-            },
-            methods: {
-                toggleFilters() {
-                    this.showFilters = !this.showFilters;
-                    if (!this.showFilters) {
-                        // 收起时清空过滤条件
-                        this.filters = {
-                            patientName: '',
-                            hospitalId: '',
-                            admissionDateStart: '',
-                            admissionDateEnd: '',
-                            dischargeDateStart: '',
-                            requestedDateEnd: '', // Corrected typo? assuming dischargeDateEnd was intended
-                            dischargeDateEnd: '', // Corrected typo?
-                            fileType: ''
-                        };
-                         // If you want to clear filters when collapsing:
-                        this.filters = {
-                             patientName: '',
-                             hospitalId: '',
-                             admissionDateStart: '',
-                             admissionDateEnd: '',
-                             dischargeDateStart: '',
-                             dischargeDateEnd: '',
-                             fileType: ''
-                        };
-                    }
-                },
-                async search(page = 1) {
-                    console.log('Search triggered with query:', this.query, 'filters:', this.filters, 'page:', page);
-                    this.current_page = page;
-                    this.error = '';
-                    const params = {
-                        query: this.query,
-                        patient_name: this.filters.patientName,
-                        hospital_id: this.filters.hospitalId,
-                        admission_date_start: this.filters.admissionDateStart,
-                        admission_date_end: this.filters.admissionDateEnd,
-                        discharge_date_start: this.filters.dischargeDateStart,
-                        discharge_date_end: this.filters.dischargeDateEnd,
-                        file_type: this.filters.fileType,
-                        page: this.current_page,
-                        size: this.size
-                    };
-                    console.log('Sending API request with params:', params);
-                    try {
-                        const response = await axios.get('/api/search', { params });
-                        console.log('Search results:', response.data.results);
-                        this.results = response.data.results;
-                        this.total = response.data.total;
-                        this.total_pages = response.data.total_pages;
-                        this.pdfUrl = null;
-                        this.pdfDocument = null;
-                        this.totalPdfPages = 1;
-                        this.pdfPage = 1;
-                    } catch (error) {
-                        this.error = '搜索失败，请重试';
-                        console.error('Search failed:', error);
-                    }
-                },
-                prevPage() {
-                    if (this.current_page > 1) {
-                        this.search(this.current_page - 1);
-                    }
-                },
-                nextPage() {
-                    if (this.current_page < this.total_pages) {
-                        this.search(this.current_page + 1);
-                    }
-                },
-                goToPage(page) {
-                    if (page >= 1 && page <= this.total_pages) {
-                        this.search(page);
-                    }
-                },
-                async loadPdf(result) {
-                    console.log('loadPdf called with result:', result);
-                    this.error = '';
-                    if (!result || !result.filename) {
-                        this.error = '无效的结果或缺少文件名';
-                        console.error('Invalid result or missing filename');
-                        return;
-                    }
-                    const newPdfUrl = `/api/pdf?filename=${encodeURIComponent(result.filename)}`;
-                    console.log('New pdfUrl:', newPdfUrl, 'Current pdfUrl:', this.pdfUrl);
-                    if (this.pdfUrl !== newPdfUrl) {
-                        this.pdfDocument = null;
-                        this.totalPdfPages = 1;
-                    }
-                    this.pdfUrl = newPdfUrl;
-                    this.pdfPage = result.page;
-                    console.log('pdfUrl set to:', this.pdfUrl, 'pdfPage:', this.pdfPage);
-                    await this.renderPdf();
-                },
-                async renderPdf() {
-                    console.log('renderPdf called with pdfUrl:', this.pdfUrl, 'page:', this.pdfPage);
-                    this.error = ''; // 清除之前的错误信息
-
-                    if (!this.pdfUrl) {
-                        console.log('No pdfUrl, skipping render');
-                        return;
-                    }
-                    if (typeof pdfjsLib === 'undefined') {
-                        this.error = 'PDF.js 未加载，请刷新页面';
-                        console.error('pdfjsLib is not defined');
-                        return;
-                    }
-                    try {
-                         if (!this.pdfDocument || (this.pdfDocument.loadingTask && this.pdfDocument.loadingTask.url !== this.pdfUrl)) {
-                            console.log('Loading new PDF document:', this.pdfUrl);
-                            // 如果是新的 PDF URL，取消之前的加载任务（如果有）并加载新的
-                             if (this.pdfDocument && this.pdfDocument.loadingTask && !this.pdfDocument.loadingTask.destroyed) { // Check if destroy method exists and not already destroyed
-                                try { 
-                                    if (typeof this.pdfDocument.loadingTask.destroy === 'function') {
-                                         this.pdfDocument.loadingTask.destroy();
-                                    } else {
-                                         console.warn("Previous loading task has no destroy method or already destroyed.");
-                                    }
-                                } catch (e) { console.warn("Failed to destroy previous loading task:", e); }
-                             }
-                            this.pdfDocument = await pdfjsLib.getDocument(this.pdfUrl).promise;
-                            this.totalPdfPages = this.pdfDocument.numPages;
-                            console.log('PDF loaded, total pages:', this.totalPdfPages);
-
-                            // 如果加载了新文档，重置到第一页（或者检查当前页是否超出范围）
-                             if (this.pdfPage < 1 || this.pdfPage > this.totalPdfPages) {
-                                console.warn(`Adjusting PDF page from ${this.pdfPage} to 1 as it is out of bounds for new document with ${this.totalPdfPages} pages.`);
-                                this.pdfPage = 1; // Reset to a valid page
-                            }
-
-                        } else if (this.pdfPage < 1 || this.pdfPage > this.totalPdfPages) {
-                             // Handle case where pdfDocument is the same, but the page number is out of bounds
-                            this.error = `无效的页面编号: ${this.pdfPage}. 总页数: ${this.totalPdfPages}`;
-                            console.error('Invalid page number for existing document:', this.pdfPage);
-                             // You might want to reset the page here or just display the error
-                             // this.pdfPage = 1; // Option to reset to page 1
-                             return; // Stop rendering if page is invalid
-                         }
-
-
-                        const page = await this.pdfDocument.getPage(this.pdfPage);
-                        const canvas = document.getElementById('pdf-canvas');
-                        if (!canvas) {
-                            this.error = '无法找到画布元素';
-                            console.error('Canvas element not found');
-                            return;
-                        }
-                        const context = canvas.getContext('2d');
-
-                        const container = document.querySelector('.pdf-viewer');
-                        // 确保 container 存在，避免错误
-                        const containerWidth = container ? container.clientWidth - 20 : 800; // 留一些边距, 提供默认值
-                        const viewport = page.getViewport({ scale: 1 });
-                        const scale = Math.min(containerWidth / viewport.width, 1.5); // 最大缩放1.5倍原始尺寸
-                        const scaledViewport = page.getViewport({ scale });
-
-                        canvas.height = scaledViewport.height;
-                        canvas.width = scaledViewport.width;
-
-                        // 清除 Canvas
-                        context.clearRect(0, 0, canvas.width, canvas.height);
-
-                        // 渲染 PDF 页面
-                        await page.render({
-                            canvasContext: context,
-                            viewport: scaledViewport
-                        }).promise;
-
-                         // Highlighting keywords (re-using your existing logic)
-                         if (this.query && this.pdfDocument) { // Only highlight if there's a query and a document is loaded
-                             try {
-                                const textContent = await page.getTextContent();
-                                // === 新增：处理查询字符串，替换特殊字符为空格 ===
-                                let processedQuery = this.query;
-                                if (processedQuery) {
-                                    const charsToReplaceRegex = /\&|\|\||\"|\'/g; // 全局匹配所有要替换的字符/序列
-                                    processedQuery = processedQuery.replace(charsToReplaceRegex, ' ');
-                                } else {
-                                    processedQuery = '';
-                                }
-                                const keywords = processedQuery.trim().split(/\s+/).filter(k => k);
-                                const highlightRects = [];
-
-                                if (keywords.length > 0) {
-                                    textContent.items.forEach(item => {
-                                        if (!item.str) return;
-                                        keywords.forEach(keyword => {
-                                            const regex = new RegExp(keyword, 'gi');
-                                            let match;
-                                            while ((match = regex.exec(item.str)) !== null) {
-                                                const startIdx = match.index;
-                                                const matchedString = match[0]; // Use the actual matched string for width estimation
-                                                const fullString = item.str; // The full string of the text item
-
-                                                // More accurate position and width calculation (still an approximation)
-                                                // We need to estimate the width of the text *before* the match
-                                                // and the width of the matched text within the item string.
-                                                // This is complex with non-monospace fonts and PDF.js item data.
-                                                // A common approach is to get BBox data if available, but textContent.items doesn't provide this per character easily.
-                                                // The current method of using item.transform[4] + startIdx * charWidth * scale is a *very* rough estimate.
-
-                                                // A slightly better approach might involve trying to render text layers (as PDF.js examples do)
-                                                // or making assumptions about average character width *within this specific item's font/style*.
-
-                                                // Let's stick to a slightly refined version of the current approach but acknowledge its limitations.
-                                                // We'll try to estimate the start position based on the proportion of the string before the match.
-                                                const proportionBeforeMatch = startIdx / fullString.length;
-                                                const estimatedStartXInItem = item.width * proportionBeforeMatch;
-
-                                                const estimatedMatchWidth = item.width * (matchedString.length / fullString.length);
-
-
-                                                const x = (item.transform[4] + estimatedStartXInItem) * scale;
-                                                // PDF.js Y is often the baseline. Adjusting to the top of the text block.
-                                                // item.transform[5] is the baseline Y in PDF coordinates.
-                                                // item.height is the height of the text block.
-                                                // In PDF, Y=0 is at the bottom. In Canvas, Y=0 is at the top.
-                                                // Canvas Y = scaledViewport.height - (PDF Y + PDF height) * scale
-                                                const y = scaledViewport.height - (item.transform[5] + item.height) * scale;
-
-                                                const width = estimatedMatchWidth * scale;
-                                                const height = item.height * scale; // Scaled height of the text line
-
-                                                const rect = { x, y, width, height };
-                                                highlightRects.push(rect);
-
-                                                 // console.log(`Highlighting "${matchedString}" (keyword "${keyword}") in item "${item.str}"`);
-                                                 // console.log(`PDF Coords: x=${item.transform[4]}, y=${item.transform[5]}, width=${item.width}, height=${item.height}`);
-                                                 // console.log(`Estimated Canvas Rect: x=${rect.x}, y=${rect.y}, w=${rect.width}, h=${rect.height}`);
-                                            }
-                                        });
-                                    });
-                                }
-
-                                // Draw highlight rectangles
-                                // Setting globalAlpha here will affect all subsequent draw calls until changed.
-                                // Using rgba fillStyle is generally better for individual transparent shapes.
-                                context.fillStyle = 'rgba(255, 255, 0, 0.3)'; // Semi-transparent yellow
-
-                                highlightRects.forEach(rect => {
-                                    context.fillRect(rect.x, rect.y, rect.width, rect.height);
-
-                                    // Debug border (if enabled)
-                                    if (this.debugHighlight) {
-                                        const originalAlpha = context.globalAlpha;
-                                        context.globalAlpha = 1.0; // Make border opaque
-                                        context.strokeStyle = 'red';
-                                        context.strokeRect(rect.x, rect.y, rect.width, rect.height);
-                                        context.globalAlpha = originalAlpha; // Restore previous alpha
-                                    }
-                                });
-                             } catch (highlightError) {
-                                console.error("Error during highlighting:", highlightError);
-                                // You might want to set an error message specific to highlighting if needed
-                                 // this.error = '高亮关键词失败';
-                             }
-                         }
-
-
-                        console.log('Page rendered:', this.pdfPage);
-                        // 如果您在组件中使用，可能需要 emit 一个事件表示渲染完成
-                        // this.$emit('page-rendered', this.pdfPage);
-
-                    } catch (error) {
-                        this.error = '加载 PDF 失败，请重试';
-                        console.error('renderPdf failed:', error);
-                        // 如果加载失败，清除文档对象，以便下次尝试重新加载
-                        if (this.pdfDocument && typeof this.pdfDocument.destroy === 'function') {
-                            try { this.pdfDocument.destroy(); } catch (e) { console.warn("Failed to destroy document on render error:", e); }
-                        }
-                        this.pdfDocument = null;
-                        this.pdfUrl = null; // Clear PDF URL on catastrophic render failure
-                         this.totalPdfPages = 1; // Reset page count
-                         this.pdfPage = 1; // Reset page number
-                        // 如果您在组件中使用，可能需要 emit 一个错误事件
-                        // this.$emit('render-error', error);
-                    }
-                },
-                prevPdfPage() {
-                    if (this.pdfPage > 1) {
-                        this.pdfPage--;
-                        this.renderPdf();
-                    }
-                },
-                nextPdfPage() {
-                    if (this.pdfPage < this.totalPdfPages) {
-                        this.pdfPage++;
-                        this.renderPdf();
-                    }
-                },
-
-                // New WebDAV methods
-                async openSettingsModal() {
-                    await this.loadWebdavSettings();
-                    this.showSettingsModal = true;
-                },
-                closeSettingsModal() {
-                    this.showSettingsModal = false;
-                    // Optional: Reset form fields if needed, or keep last saved values
-                },
-                saveSettings() {
-                    // Basic validation (optional)
-                    if (this.webdavSettings.enabled) {
-                        if (!this.webdavSettings.ip || !this.webdavSettings.user || !this.webdavSettings.password) {
-                            alert('启用 WebDAV 时，IP地址、用户名和密码不能为空。');
-                            return;
-                        }
-                    }
-
-                    const settingsPayload = {
-                        ip: this.webdavSettings.ip,
-                        port: this.webdavSettings.port,
-                        user: this.webdavSettings.user,
-                        password: this.webdavSettings.password,
-                        directory: this.webdavSettings.directory,
-                        enabled: this.webdavSettings.enabled
-                    };
-
-                    console.log('Saving WebDAV settings:', settingsPayload);
-
-                    // Replace '/api/save_webdav_settings' with your actual backend endpoint
-                    axios.post('/api/save_webdav_settings', settingsPayload)
-                        .then(response => {
-                            console.log('Settings saved successfully:', response.data);
-                            alert('WebDAV 设置保存成功!');
-                            this.closeSettingsModal();
-                            // Optional: Handle successful save response (e.g., update local state based on backend confirmation)
-                        })
-                        .catch(error => {
-                            console.error('Failed to save settings:', error);
-                             let errorMessage = '保存 WebDAV 设置失败';
-                            if (error.response && error.response.data && error.response.data.detail) {
-                                 errorMessage += ': ' + error.response.data.detail; // Assuming backend sends error details
-                            } else if (error.message) {
-                                errorMessage += ': ' + error.message;
-                            }
-                            alert(errorMessage);
-                        });
-                },
-                 // Optional method to load settings on page load (call this in mounted if needed)
-                 async loadWebdavSettings() {
-                    try {
-                         const response = await axios.get('/api/get_webdav_settings'); // Replace with your actual endpoint
-                         console.log('Loaded existing WebDAV settings:', response.data);
-                         this.webdavSettings = response.data; // Assuming backend returns an object matching webdavSettings structure
-                    } catch (error) {
-                         console.error('Failed to load initial WebDAV settings:', error);
-                    }
-                 }
-            }
-        });
-    </script>
+    <script src="/static/js/app.js"></script>
 </body>
 </html>
