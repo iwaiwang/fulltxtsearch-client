@@ -202,8 +202,9 @@ new Vue({
                     this.totalPdfPages = this.pdfDocument.numPages;
                     this.pdfcanvas  = document.getElementById('pdf-canvas');
                     this.pdfcanvasContext= this.pdfcanvas.getContext('2d');
-                    this.pdfPage = 1; 
-                } else if (this.pdfPage < 1 || this.pdfPage > this.totalPdfPages) {
+                    //this.pdfPage = 1; 
+                }  
+                if (this.pdfPage < 1 || this.pdfPage > this.totalPdfPages) {
                      // Handle case where pdfDocument is the same, but the page number is out of bounds
                     this.error = `无效的页面编号: ${this.pdfPage}. 总页数: ${this.totalPdfPages}`;
                     console.error('Invalid page number for existing document:', this.pdfPage);
