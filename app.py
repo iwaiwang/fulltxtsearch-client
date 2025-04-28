@@ -103,22 +103,15 @@ def search():
     page = int(request.args.get('page', 1))
     size = int(request.args.get('size', 10))
 
-    if not query:
+    if not query and not hospital_id and not patient_name:
         return jsonify({'results': [], 'total': 0, 'page': page, 'size': size, 'total_pages': 0})
-
+    
     from_idx = (page - 1) * size
-
     search_query = {
         "query": { 
             "bool": {
-            "must": [{
-                "query_string": {
-                    "default_field": "页内容",
-                    "query": query
-                }
-                }
-            ],
-            "filter": []
+                "must": [],
+                "filter": []
             }
         },
         'from': from_idx,
@@ -130,13 +123,26 @@ def search():
             'pre_tags': ['<strong>'],
             'post_tags': ['</strong>']
         }
-    }
+    } 
+
+    if query:
+        logger.info(f"text_query: {search_query}")
+        search_query['query']['bool']['must'].append({
+            "query_string": {
+                "default_field": "页内容",
+                "query": query
+            }
+        })
+    else: # 如果搜索文本为空，则搜索所有文件
+        search_query['query']['bool']['must'].append({
+            "match_all": {}
+        })
 
     if file_type:
         search_query['query']['bool']['filter'].append(
             {
                 'term': {
-                    '文件类型': file_type
+                    '文件类型.keyword': file_type
                 }
             }
         )
@@ -145,7 +151,7 @@ def search():
         search_query['query']['bool']['filter'].append(
             {
                 'term': {
-                    '患者名': patient_name
+                    '患者名.keyword': patient_name
                 }
             }
         )
@@ -153,7 +159,7 @@ def search():
             search_query['query']['bool']['filter'].append(
                 {
                     'term': {
-                        '住院号': hospital_id
+                        '住院号.keyword': hospital_id
                     }
                 }
             )
@@ -295,7 +301,7 @@ def get_file_types():
             'aggs': {
                 'by_type': {
                     'terms': {
-                        'field': '文件类型',
+                        'field': '文件类型.keyword',
                         'size': 100
                     }
                 }
