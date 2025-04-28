@@ -3,3 +3,5 @@ pdf_files/
 indexed_files.db
 src/__pycache__/
 .DS_Store
+__pycache__/
+*.log
