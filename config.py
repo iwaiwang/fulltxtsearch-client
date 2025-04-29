@@ -5,12 +5,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 class SettingsManager:
-    def __init__(self, settings_file_path='settings.json'):
+    def __init__(self, settings_file_path='./settings.json'):
         self.settings_file = settings_file_path
         self.settings = {}
         self.default_settings = {
             "opensearch": {
-                "host": "https://192.168.3.66:9200",
+                "host": "https://localhost:9200",
                 "user": "admin",
                 "password": "123@QWE#asd", # Use a placeholder default
                 "index_name": "medical_records"
@@ -25,7 +25,10 @@ class SettingsManager:
             },
             "localfile": {
                 "pdf_directory": "pdf_files" # Use a placeholder default
-            }
+            },
+            "others":{
+                "specialpath":False
+            } 
         }
         self.load_settings() # Load settings on initialization
 

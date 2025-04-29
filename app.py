@@ -6,7 +6,8 @@ import logging
 import datetime
 import json # Keep json for logging/debugging
 from webdav_client import WebDavClient,OperationFailed
-import io # For handling byte streams
+import io 
+import time
 
 # Import the new SettingsManager class
 from config import SettingsManager # Assuming the file is config.py
@@ -55,6 +56,7 @@ opensearch_client = None # Initialize as None
 opensearch_config = app_settings.get('opensearch', {})# Get WebDAV settings
 
 try:
+    time.sleep(15) # 等待opensearch启动，在容器中启动的时候 opensearch 还没有启动，所以需要等待
     opensearch_client = opensearchpy.OpenSearch(
         hosts=opensearch_config['host'],
         http_auth=(opensearch_config['user'], opensearch_config['password']),
@@ -225,6 +227,18 @@ def search():
         return jsonify({'error': f'搜索失败: {str(e)}'}), 500
 
 
+# 通过文件名来获取路径（特殊处理）
+def parsefilename(filename) -> str:
+    if not app_settings.get('others', {}).get('specialpath', False) :
+         return filename
+    # 提取第一个'_'前的数字
+    first_part = filename.split('_')[0]
+    # 分割最后三位和前面部分
+    last_three = first_part[-3:]
+    front_part = first_part[:-3]
+    # 拼接
+    result = f"{last_three}/{front_part}/{filename}"
+    return result
 
 # Get PDF API
 @app.route('/api/pdf', methods=['GET'])
@@ -247,12 +261,16 @@ def get_pdf():
     # --- WebDAV 有效性判断 ---
     if webdav_enabled and webdav_ip and webdav_user and webdav_password:
 
+        # 特殊处理
+        filename = parsefilename(filename)
+        logger.info(f"Special path: {filename}")
         #确保路径以斜杠开头
         path_for_client = f"{webdav_directory.rstrip('/')}/{filename.lstrip('/')}"
         if webdav_directory == '/':
              path_for_client = filename.lstrip('/')
         else:
              path_for_client = f"{webdav_directory.rstrip('/')}/{filename.lstrip('/')}"
+
 
         logger.debug(f"Attempting WebDAV download from {webdav_ip} path {path_for_client}")
         try:
