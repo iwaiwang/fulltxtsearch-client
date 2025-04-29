@@ -1,0 +1,12 @@
+# 忽略本地的 Python 虚拟环境
+.venv/
+
+# 可选：其他你也可以忽略
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+.env
+*.log
