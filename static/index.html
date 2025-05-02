@@ -186,6 +186,73 @@
             gap: 10px; /* 保持按钮之间的间距 */
             margin-top: 0; /* 移除或修改 margin-top，让它与输入框同行 */
         }
+        /* .blackout {
+            background-color: black !important;
+            color: black !important;
+            opacity: 1 !important; 
+            font-weight: bold;
+            padding: 1px 2px;
+            margin: -1px -2px;
+            user-select: none;
+            pointer-events: none;
+        }
+        .highlight {
+            background-color: yellow;
+            opacity: 0.6;
+        } */
+
+
+        /* Ensure the text layer container is positioned */
+        #textLayer { /* Assuming your text layer container has this class */
+            position: relative; /* This is crucial for absolute positioning of children */
+            /* pdf.js will add other styles like transform, etc. */
+        }
+        #text-layer.textLayer { /* 使用ID和Class组合提高优先级 */
+            opacity: 1 !important;
+        }
+        /* Styles for the blackout overlay div */
+        .blackout-overlay {
+            /* Styles are mostly set in JS, but good to define the class */
+            position: absolute; /* Set in JS */
+            background-color: black !important; /* Set in JS */
+            border: 2px solid black !important;
+            opacity: 1 !important;
+            font-weight: bold;
+            padding: 1px 2px;
+            /*margin: -1px -2px;*/
+            user-select: none;
+            pointer-events: none;
+            z-index: 3; /* Set in JS - ensure it's higher than text spans */
+            /* Add other relevant styles if needed, e.g., pointer-events: none; */
+        }
+        /* 修改 ::selection 和 ::-moz-selection 规则 */
+        /* 让文本选中背景直接使用半透明颜色 */
+
+        .textLayer ::selection {
+            background: rgba(0, 0, 255, 0.3); /* 示例：半透明蓝色 (30% 透明度) */
+        }
+
+        .textLayer ::-moz-selection {
+        /* Firefox 使用同样的半透明颜色 */
+            background: rgba(0, 0, 255, 0.3); /* 示例：半透明蓝色 */
+        }
+
+        /* 保留其他的 .highlight 规则和 br 的规则，它们控制其他效果 */
+        .textLayer .highlight {
+            margin: -1px;
+            padding: 1px;
+            background-color: var(--highlight-bg-color);
+            border-radius: 4px;
+            opacity: 0.5;
+        }
+        /* ... 其他 .highlight 相关的规则 ... */
+        .textLayer br::-moz-selection {
+            background: transparent;
+        }
+        .textLayer br::selection {
+            background: transparent;
+        }
+
     </style>
 </head>
 <body>

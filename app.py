@@ -11,6 +11,8 @@ import time
 
 # Import the new SettingsManager class
 from config import SettingsManager # Assuming the file is config.py
+from db_manager import  dataDesensManager
+DESENS_DB = './data_desens.db'
 
 # --- Flask App Initialization ---
 app = Flask(__name__)
@@ -56,7 +58,7 @@ opensearch_client = None # Initialize as None
 opensearch_config = app_settings.get('opensearch', {})# Get WebDAV settings
 
 try:
-    time.sleep(15) # 等待opensearch启动，在容器中启动的时候 opensearch 还没有启动，所以需要等待
+    time.sleep(10) # 等待opensearch启动，在容器中启动的时候 opensearch 还没有启动，所以需要等待
     opensearch_client = opensearchpy.OpenSearch(
         hosts=opensearch_config['host'],
         http_auth=(opensearch_config['user'], opensearch_config['password']),
@@ -195,6 +197,17 @@ def search():
         for hit in response['hits']['hits']:
             highlight_text = hit.get('highlight', {}).get('页内容')
             display_text = highlight_text[0] if highlight_text else hit['_source'].get('页内容', '')
+            hospital_id = hit['_source'].get('住院号')
+            #获取脱敏数据并替换
+            ddm = dataDesensManager(DESENS_DB)
+            desensData =  ddm.getDesensData(hospital_id)
+            if desensData:
+                desensData = json.loads(desensData)
+                # 去掉年龄，前端碰到根年龄相同的数字就会脱敏处理，很麻烦
+                desensData = {key: value for key, value in desensData.items() if value != '' and  key != 'age'}
+                for key, value in desensData.items():
+                    if value in display_text:
+                        display_text = display_text.replace(value, '*' * get_display_width(value))
 
             results.append({
                 'id': hit['_id'],
@@ -210,7 +223,6 @@ def search():
 
         total = response['hits']['total']['value'] if isinstance(response['hits']['total'], dict) else response['hits']['total']
         total_pages = (total + size - 1) // size
-
         logger.info(f"Search successful. Found {total} results.")
         return jsonify({
             'results': results,
@@ -227,18 +239,6 @@ def search():
         return jsonify({'error': f'搜索失败: {str(e)}'}), 500
 
 
-# 通过文件名来获取路径（特殊处理）
-def parsefilename(filename) -> str:
-    if not app_settings.get('others', {}).get('specialpath', False) :
-         return filename
-    # 提取第一个'_'前的数字
-    first_part = filename.split('_')[0]
-    # 分割最后三位和前面部分
-    last_three = first_part[-3:]
-    front_part = first_part[:-3]
-    # 拼接
-    result = f"{last_three}/{front_part}/{filename}"
-    return result
 
 # Get PDF API
 @app.route('/api/pdf', methods=['GET'])
@@ -261,8 +261,8 @@ def get_pdf():
     # --- WebDAV 有效性判断 ---
     if webdav_enabled and webdav_ip and webdav_user and webdav_password:
 
-        # 特殊处理
-        filename = parsefilename(filename)
+        # 特殊处理, 如果目录是以病案号的后三位和前五位结合来命名的情况下要做特殊处理
+        #filename = parsefilename(filename)
         logger.info(f"Special path: {filename}")
         #确保路径以斜杠开头
         path_for_client = f"{webdav_directory.rstrip('/')}/{filename.lstrip('/')}"
@@ -378,6 +378,48 @@ def get_webdav_settings():
     return jsonify(settings_manager.get_webdav_settings())
 
 
+
+@app.route('/api/datadesens', methods=['GET'])
+def datadesens():
+    try:
+        hospital_id = request.args.get('hospital_id')
+        if not hospital_id:
+            return jsonify({'error': '没有住院号！'}), 400
+        ddm = dataDesensManager(DESENS_DB)
+        desensData =  ddm.getDesensDataDict(hospital_id)
+        if desensData:
+            return jsonify({'status': 'success', 'message': '成功获取脱敏信息。', 'data': desensData})
+        else:
+            return jsonify({'status': 'success', 'message': '获取脱敏信息失败.'})
+    except Exception as e:
+        logger.error(f"Error fetching data desensitization context: {str(e)}", exc_info=True)
+        return jsonify({'error': f'获取数据脱敏上下文失败: {str(e)}'}), 500
+
+
+
+def get_display_width(text):
+    width = 0
+    for char in text:
+        if ord(char) > 127:  # 中文字符（Unicode > 127）
+            width += 2
+        else:
+            width += 1
+    return width
+
+# 通过文件名来获取路径（特殊处理）
+def parsefilename(filename) -> str:
+    if not app_settings.get('others', {}).get('specialpath', False) :
+         return filename
+    # 提取第一个'_'前的数字
+    first_part = filename.split('_')[0]
+    # 分割最后三位和前面部分
+    last_three = first_part[-3:]
+    front_part = first_part[:-3]
+    # 拼接
+    result = f"{last_three}/{front_part}/{filename}"
+    return result
+
+
 # --- Main execution ---
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=False, port=5001)
+    app.run(host='0.0.0.0', debug=False, port=5005)

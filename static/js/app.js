@@ -44,6 +44,7 @@ new Vue({
         },
         pdfcanvas: null,
         pdfcanvasContext: null,
+        pdfDesensData:null  //脱敏数据
 
     },
     computed: {
@@ -164,24 +165,28 @@ new Vue({
             this.pdfUrl = newPdfUrl;
             this.pdfPage = result.page;
             console.log('pdfUrl set to:', this.pdfUrl, 'pdfPage:', this.pdfPage);
+            // 获取脱敏数据
+            const response = await axios.get('/api/datadesens',{
+                params: {
+                    hospital_id: result.hospital_id
+                },
+            }); 
+            console.log('Loaded existing WebDAV settings:', response.data.data);
+            this.pdfDesensData = response.data.data; // Assuming backend returns an object matching webdavSettings structure
             await this.renderPdf();
         },
         async renderPdf() {
-            console.log('renderPdf called with pdfUrl:', this.pdfUrl, 'page:', this.pdfPage);
             this.error = ''; // 清除之前的错误信息
 
             if (!this.pdfUrl) {
-                console.log('No pdfUrl, skipping render');
                 return;
             }
             if (typeof pdfjsLib === 'undefined') {
                 this.error = 'PDF.js 未加载，请刷新页面';
-                console.error('pdfjsLib is not defined');
                 return;
             }
             try {
                  if (!this.pdfDocument || (this.pdfDocument.loadingTask && this.pdfDocument.loadingTask.url !== this.pdfUrl)) {
-                    console.log('Loading new PDF document:', this.pdfUrl);
                     // 如果是新的 PDF URL，取消之前的加载任务（如果有）并加载新的
                      if (this.pdfDocument && this.pdfDocument.loadingTask && !this.pdfDocument.loadingTask.destroyed) { // Check if destroy method exists and not already destroyed
                         try {
@@ -234,8 +239,10 @@ new Vue({
             try {
                 const page = await this.pdfDocument.getPage(pageNo);
                 const viewport = this.getViewport(page)
+                this.pdfcanvas.style.visibility = 'hidden';
                 await this.renderCanvas(page, viewport);
                 await this.renderTextLayer(page, viewport);
+                this.pdfcanvas.style.visibility = 'visible';
                 this.renderingInProgress = false;
             } catch (error) {
                 console.error('Error rendering page:', error);
@@ -273,10 +280,11 @@ new Vue({
         },
 
         // Render text layer with highlights
-        async renderTextLayer(page, viewport) {
+        async renderTextLayerOld(page, viewport) {
             const textContent = await page.getTextContent();
             const textLayerDiv = document.getElementById('text-layer');
             textLayerDiv.innerHTML = '';
+            textLayerDiv.style.visibility = 'hidden';
             textLayerDiv.style.setProperty('--scale-factor', viewport.scale);
             textLayerDiv.style.left = this.pdfcanvas.style.left;
             textLayerDiv.style.top = this.pdfcanvas.style.top;
@@ -308,8 +316,122 @@ new Vue({
                     });
                 }
             }
-        },
+            
+            if (this.pdfDesensData) { 
+                // === 新增：处理查询字符串，替换特殊字符为空格 ===
+                const keywords = Object.values(this.pdfDesensData)
+                console.log(' #######脱敏的值：', keywords)
+                if (keywords.length > 0) {
+                    textLayerDiv.querySelectorAll('span').forEach(div => {
+                        let innerHTML = div.textContent;
+                        keywords.forEach(keyword => {
+                            // 转义关键词以防止正则表达式错误
+                            const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            const regex = new RegExp(`(${escapedKeyword})`, 'gi');
+                            innerHTML = innerHTML.replace(regex, '<span class="blackout">$1</span>');
+                        });
+                        if (innerHTML !== div.textContent) {
+                            div.innerHTML = innerHTML;
+                        }
+                    });
+                }
+            }
 
+            textLayerDiv.style.visibility = 'visible';
+        },
+        async renderTextLayer(page, viewport) {
+            const textContent = await page.getTextContent();
+            const textLayerDiv = document.getElementById('text-layer');
+            textLayerDiv.innerHTML = '';
+            textLayerDiv.style.setProperty('--scale-factor', viewport.scale);
+            textLayerDiv.style.left = this.pdfcanvas.style.left;
+            textLayerDiv.style.top = this.pdfcanvas.style.top;
+            await pdfjsLib.renderTextLayer({
+                textContentSource: textContent,
+                container: textLayerDiv,
+                viewport,
+                textDivs: [],
+            });
+        
+            if (this.query) {
+                let processedQuery = this.query || '';
+                processedQuery = processedQuery.replace(/[&|"'\\]/g, ' ').trim();
+                const keywords = processedQuery.split(/\s+/).filter(k => k.length > 0);
+
+                if (keywords.length > 0) {
+                    textLayerDiv.querySelectorAll('span').forEach(div => {
+                        let innerHTML = div.textContent;
+                        keywords.forEach(keyword => {
+                            // 转义关键词以防止正则表达式错误
+                            const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            const regex = new RegExp(`(${escapedKeyword})`, 'gi');
+                            innerHTML = innerHTML.replace(regex, '<span class="highlight">$1</span>');
+                        });
+                        if (innerHTML !== div.textContent) {
+                            div.innerHTML = innerHTML;
+                        }
+                    });
+                }
+            }
+            // ---------------------------------------------------------------------
+        
+            // --- Blackout ---
+            if (this.pdfDesensData) {
+                const keywordsToBlackout = Object.values(this.pdfDesensData);
+                const textLayerRect = textLayerDiv.getBoundingClientRect();
+                if (keywordsToBlackout.length > 0) {
+                    textLayerDiv.querySelectorAll('span').forEach(textSpan => {
+                        const spanText = textSpan.textContent; // Get the current text content of the span
+        
+                        let keywordFoundInSpan = false;
+                        keywordsToBlackout.forEach(keyword => {
+                             // Check if the span's text contains the keyword (case-insensitive check is often good)
+                             if (spanText.toLowerCase().includes(keyword.toLowerCase())) {
+                                  keywordFoundInSpan = true;
+                                  // Note: This simplifies by blacking out the *entire* span if it contains the keyword.
+                                  // Blacking out only the *exact* keyword within a span is more complex
+                                  // and might require creating multiple overlay divs or measuring substring bounds.
+                             }
+                        });
+        
+                        if (keywordFoundInSpan) {
+                             // Get the position and size of the span relative to the viewport
+                             const spanRect = textSpan.getBoundingClientRect();
+        
+                             // Create the blackout overlay div
+                             const blackoutDiv = document.createElement('div');
+                             
+                             blackoutDiv.className = 'blackout-overlay'; // Use a distinct class for styling
+        
+                             // Position the overlay div absolutely within the textLayerDiv container
+                             // Need to subtract the container's top/left offset from the span's viewport rect
+                             blackoutDiv.style.position = 'absolute';
+                             blackoutDiv.style.left = `${spanRect.left - textLayerRect.left}px`;
+                             blackoutDiv.style.top = `${spanRect.top - textLayerRect.top}px`;
+                             blackoutDiv.style.width = `${spanRect.width}px`;
+                             blackoutDiv.style.height = `${spanRect.height}px`;
+        
+                             // Style the overlay div to be solid black and fully opaque
+                             blackoutDiv.style.backgroundColor = 'black';
+                             blackoutDiv.style.opacity = 1;
+                             blackoutDiv.style.zIndex = 3; // Ensure it's above the text spans (default z-index is usually 1 or auto)
+        
+                              // 不让用户 用这个 span 的文本选择和鼠标事件 ===
+                            textSpan.style.userSelect = 'none';      // 标准属性
+                            textSpan.style.mozUserSelect = 'none';    // Firefox
+                            textSpan.style.msUserSelect = 'none';     // IE/Edge
+
+                            // 可以同时设置 pointer-events 为 none，增强效果
+                            textSpan.style.pointerEvents = 'none';
+
+                             textLayerDiv.appendChild(blackoutDiv);
+                        }
+                    });
+                    textLayerDiv.style.opacity = 1;
+                }
+            }
+        
+        },
         prevPdfPage() {
             if (this.pdfPage > 1) {
                 this.pdfPage--;
