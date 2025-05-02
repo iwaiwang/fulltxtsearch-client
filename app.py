@@ -402,4 +402,4 @@ def get_display_width(text):
 
 # --- Main execution ---
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', debug=False, port=5005)
+    app.run(host='0.0.0.0', debug=False, port=5001)
